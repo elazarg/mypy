@@ -62,6 +62,7 @@ files = [
     'check-optional.test',
     'check-fastparse.test',
     'check-warnings.test',
+    'check-async-await.test',
 ]
 
 
