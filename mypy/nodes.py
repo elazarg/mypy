@@ -799,6 +799,7 @@ class ForStmt(Statement):
     expr = None  # type: Expression
     body = None  # type: Block
     else_body = None  # type: Block
+    is_async = False  # True if `async for ...` (PEP 492, Python 3.5)
 
     def __init__(self, index: Expression, expr: Expression, body: Block,
                  else_body: Block) -> None:
@@ -909,6 +910,7 @@ class WithStmt(Statement):
     expr = None  # type: List[Expression]
     target = None  # type: List[Expression]
     body = None  # type: Block
+    is_async = False  # True if `async with ...` (PEP 492, Python 3.5)
 
     def __init__(self, expr: List[Expression], target: List[Expression],
                  body: Block) -> None:
@@ -1706,10 +1708,6 @@ class PromoteExpr(Expression):
         return visitor.visit__promote_expr(self)
 
 
-# PEP 492 nodes: 'await', 'async for', 'async with'.
-# ('async def' is a FuncDef with is_coroutine = True.)
-
-
 class AwaitExpr(Node):
     """Await expression (await ...)."""
     # TODO: [de]serialize()
@@ -1723,50 +1721,6 @@ class AwaitExpr(Node):
 
     def accept(self, visitor: NodeVisitor[T]) -> T:
         return visitor.visit_await_expr(self)
-
-
-class AsyncForStmt(Node):
-    """Asynchronous for statement (async for ...)."""
-    # TODO Maybe just use ForStmt with an extra flag?
-    # TODO: [de]serialize
-    # TODO: types
-
-    # Index variables
-    index = None  # type: Expression
-    # Expression to iterate
-    expr = None  # type: Expression
-    body = None  # type: Block
-    else_body = None  # type: Block
-
-    def __init__(self, index: Expression, expr: Expression, body: Block,
-                 else_body: Block) -> None:
-        self.index = index
-        self.expr = expr
-        self.body = body
-        self.else_body = else_body
-
-    def accept(self, visitor: NodeVisitor[T]) -> T:
-        return visitor.visit_async_for_stmt(self)
-
-
-class AsyncWithStmt(Node):
-    """Asynchronous with statement (async with ...)."""
-    # TODO Maybe just use WithStmt with an extra flag?
-    # TODO: [de]serialize
-    # TODO: types
-
-    expr = None  # type: List[Expression]
-    target = None  # type: List[Expression]
-    body = None  # type: Block
-
-    def __init__(self, expr: List[Expression], target: List[Expression],
-                 body: Block) -> None:
-        self.expr = expr
-        self.target = target
-        self.body = body
-
-    def accept(self, visitor: NodeVisitor[T]) -> T:
-        return visitor.visit_async_with_stmt(self)
 
 
 # Constants
