@@ -25,8 +25,7 @@ from typing import (AbstractSet, Dict, Iterable, Iterator, List,
                     NamedTuple, Optional, Set, Tuple, Union, Mapping)
 
 from mypy.types import Type
-from mypy.nodes import (MypyFile, Node, Import, ImportFrom, ImportAll,
-                        SymbolTableNode, MODULE_REF)
+from mypy.nodes import (MypyFile, Import, ImportFrom, ImportAll)
 from mypy.semanal import FirstPass, SemanticAnalyzer, ThirdPass
 from mypy.checker import TypeChecker
 from mypy.indirection import TypeIndirectionVisitor

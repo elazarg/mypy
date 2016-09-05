@@ -7,11 +7,7 @@ from mypy.types import (
     AnyType, CallableType, Void, NoneTyp, DeletedType, TypeList, TypeVarDef, TypeVisitor,
     StarType, PartialType, EllipsisType, UninhabitedType, TypeType
 )
-from mypy.nodes import (
-    BOUND_TVAR, TYPE_ALIAS, UNBOUND_IMPORTED,
-    TypeInfo, Context, SymbolTableNode, Var, Node,
-    IndexExpr, RefExpr
-)
+from mypy.nodes import DefKind, TypeInfo, Context, SymbolTableNode, Var, Node, IndexExpr, RefExpr
 from mypy.sametypes import is_same_type
 from mypy.exprtotype import expr_to_unanalyzed_type, TypeTranslationError
 from mypy.subtypes import satisfies_upper_bound
@@ -42,7 +38,7 @@ def analyze_type_alias(node: Node,
     if isinstance(node, RefExpr):
         if not (isinstance(node.node, TypeInfo) or
                 node.fullname == 'typing.Any' or
-                node.kind == TYPE_ALIAS):
+                node.kind == DefKind.TYPE_ALIAS):
             return None
     elif isinstance(node, IndexExpr):
         base = node.base
@@ -89,11 +85,11 @@ class TypeAnalyser(TypeVisitor[Type]):
         if sym is not None:
             if sym.node is None:
                 # UNBOUND_IMPORTED can happen if an unknown name was imported.
-                if sym.kind != UNBOUND_IMPORTED:
+                if sym.kind != DefKind.UNBOUND_IMPORTED:
                     self.fail('Internal error (node is None, kind={})'.format(sym.kind), t)
                 return AnyType()
             fullname = sym.node.fullname()
-            if sym.kind == BOUND_TVAR:
+            if sym.kind == DefKind.BOUND_TVAR:
                 if len(t.args) > 0:
                     self.fail('Type variable "{}" used with arguments'.format(
                         t.name), t)
@@ -137,7 +133,7 @@ class TypeAnalyser(TypeVisitor[Type]):
                 items = self.anal_array(t.args)
                 item = items[0]
                 return TypeType(item, line=t.line)
-            elif sym.kind == TYPE_ALIAS:
+            elif sym.kind == DefKind.TYPE_ALIAS:
                 # TODO: Generic type aliases.
                 return sym.type_override
             elif not isinstance(sym.node, TypeInfo):
@@ -241,7 +237,7 @@ class TypeAnalyser(TypeVisitor[Type]):
         if len(t.args) == 0:
             # Callable (bare). Treat as Callable[..., Any].
             return CallableType([AnyType(), AnyType()],
-                                [nodes.ARG_STAR, nodes.ARG_STAR2],
+                                [nodes.Arg.STAR, nodes.Arg.STAR2],
                                 [None, None],
                                 ret_type=AnyType(),
                                 fallback=fallback,
@@ -252,14 +248,14 @@ class TypeAnalyser(TypeVisitor[Type]):
                 # Callable[[ARG, ...], RET] (ordinary callable type)
                 args = t.args[0].items
                 return CallableType(self.anal_array(args),
-                                    [nodes.ARG_POS] * len(args),
+                                    [nodes.Arg.POS] * len(args),
                                     [None] * len(args),
                                     ret_type=ret_type,
                                     fallback=fallback)
             elif isinstance(t.args[0], EllipsisType):
                 # Callable[..., RET] (with literal ellipsis; accept arbitrary arguments)
                 return CallableType([AnyType(), AnyType()],
-                                    [nodes.ARG_STAR, nodes.ARG_STAR2],
+                                    [nodes.Arg.STAR, nodes.Arg.STAR2],
                                     [None, None],
                                     ret_type=ret_type,
                                     fallback=fallback,

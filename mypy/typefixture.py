@@ -10,8 +10,7 @@ from mypy.types import (
     Instance, CallableType, TypeVarDef, TypeType,
 )
 from mypy.nodes import (
-    TypeInfo, ClassDef, Block, ARG_POS, ARG_OPT, ARG_STAR, SymbolTable,
-    COVARIANT)
+    TypeInfo, ClassDef, Block, Arg, SymbolTable, COVARIANT)
 
 
 class TypeFixture:
@@ -159,7 +158,7 @@ class TypeFixture:
         """callable(a1, ..., an, r) constructs a callable with argument types
         a1, ... an and return type r.
         """
-        return CallableType(a[:-1], [ARG_POS] * (len(a) - 1),
+        return CallableType(a[:-1], [Arg.POS] * (len(a) - 1),
                         [None] * (len(a) - 1), a[-1], self.function)
 
     def callable_type(self, *a):
@@ -167,7 +166,7 @@ class TypeFixture:
         argument types a1, ... an and return type r, and which
         represents a type.
         """
-        return CallableType(a[:-1], [ARG_POS] * (len(a) - 1),
+        return CallableType(a[:-1], [Arg.POS] * (len(a) - 1),
                         [None] * (len(a) - 1), a[-1], self.type_type)
 
     def callable_default(self, min_args, *a):
@@ -177,7 +176,7 @@ class TypeFixture:
         """
         n = len(a) - 1
         return CallableType(a[:-1],
-                            [ARG_POS] * min_args + [ARG_OPT] * (n - min_args),
+                            [Arg.POS] * min_args + [Arg.OPT] * (n - min_args),
                             [None] * n,
                             a[-1], self.function)
 
@@ -187,9 +186,9 @@ class TypeFixture:
         """
         n = len(a) - 1
         return CallableType(a[:-1],
-                            [ARG_POS] * min_args +
-                            [ARG_OPT] * (n - 1 - min_args) +
-                            [ARG_STAR], [None] * n,
+                            [Arg.POS] * min_args +
+                            [Arg.OPT] * (n - 1 - min_args) +
+                            [Arg.STAR], [None] * n,
                             a[-1], self.function)
 
     def make_type_info(self, name: str,

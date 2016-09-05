@@ -1,6 +1,6 @@
 """Type parser"""
 
-from typing import List, Tuple, Union, cast, Optional
+from typing import List, Tuple, Optional
 
 from mypy.types import (
     Type, UnboundType, TupleType, TypeList, CallableType, StarType,
@@ -223,17 +223,17 @@ def parse_signature(tokens: List[Token]) -> Tuple[CallableType, int]:
         raise TypeParseError(tokens[i], i)
     i += 1
     arg_types = []  # type: List[Type]
-    arg_kinds = []  # type: List[int]
+    arg_kinds = []  # type: List[nodes.Arg]
     encountered_ellipsis = False
     while tokens[i].string != ')':
         if tokens[i].string == '*':
-            arg_kinds.append(nodes.ARG_STAR)
+            arg_kinds.append(nodes.Arg.STAR)
             i += 1
         elif tokens[i].string == '**':
-            arg_kinds.append(nodes.ARG_STAR2)
+            arg_kinds.append(nodes.Arg.STAR2)
             i += 1
         else:
-            arg_kinds.append(nodes.ARG_POS)
+            arg_kinds.append(nodes.Arg.POS)
         arg, i = parse_type(tokens, i)
         arg_types.append(arg)
         next = tokens[i].string

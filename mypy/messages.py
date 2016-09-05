@@ -14,8 +14,7 @@ from mypy.types import (
     Overloaded, FunctionLike, DeletedType, TypeType
 )
 from mypy.nodes import (
-    TypeInfo, Context, MypyFile, op_methods, FuncDef, reverse_type_aliases,
-    ARG_STAR, ARG_STAR2
+    TypeInfo, Context, MypyFile, op_methods, FuncDef, reverse_type_aliases, Arg
 )
 
 
@@ -491,9 +490,9 @@ class MessageBuilder:
             except IndexError:  # Varargs callees
                 expected_type = callee.arg_types[-1]
             arg_type_str, expected_type_str = self.format_distinctly(arg_type, expected_type)
-            if arg_kind == ARG_STAR:
+            if arg_kind == Arg.STAR:
                 arg_type_str = '*' + arg_type_str
-            elif arg_kind == ARG_STAR2:
+            elif arg_kind == Arg.STAR2:
                 arg_type_str = '**' + arg_type_str
             msg = 'Argument {} {}has incompatible type {}; expected {}'.format(
                 n, target, arg_type_str, expected_type_str)

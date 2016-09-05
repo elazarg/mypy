@@ -3,7 +3,7 @@ import sys
 
 from typing import Tuple, Union, TypeVar, Callable, Sequence, Optional, Any, cast, List
 from mypy.nodes import (
-    MypyFile, Node, ImportBase, Import, ImportAll, ImportFrom, FuncDef, OverloadedFuncDef,
+    MypyFile, Node, Import, ImportAll, ImportFrom, FuncDef, OverloadedFuncDef,
     ClassDef, Decorator, Block, Var, OperatorAssignmentStmt,
     ExpressionStmt, AssignmentStmt, ReturnStmt, RaiseStmt, AssertStmt,
     DelStmt, BreakStmt, ContinueStmt, PassStmt, GlobalDecl,
@@ -11,14 +11,13 @@ from mypy.nodes import (
     TupleExpr, GeneratorExpr, ListComprehension, ListExpr, ConditionalExpr,
     DictExpr, SetExpr, NameExpr, IntExpr, StrExpr, BytesExpr, UnicodeExpr,
     FloatExpr, CallExpr, SuperExpr, MemberExpr, IndexExpr, SliceExpr, OpExpr,
-    UnaryExpr, FuncExpr, ComparisonExpr,
+    UnaryExpr, FuncExpr, ComparisonExpr, ImportBase,
     StarExpr, YieldFromExpr, NonlocalDecl, DictionaryComprehension,
     SetComprehension, ComplexExpr, EllipsisExpr, YieldExpr, Argument,
-    AwaitExpr,
-    ARG_POS, ARG_OPT, ARG_STAR, ARG_NAMED, ARG_STAR2
+    AwaitExpr, Arg
 )
 from mypy.types import (
-    Type, CallableType, FunctionLike, AnyType, UnboundType, TupleType, TypeList, EllipsisType,
+    Type, CallableType, AnyType, UnboundType, TupleType, TypeList, EllipsisType,
 )
 from mypy import defaults
 from mypy import experiments
@@ -330,7 +329,7 @@ class ASTConverter(ast35.NodeTransformer):
             type.optional = optional
 
     def transform_args(self, args: ast35.arguments, line: int) -> List[Argument]:
-        def make_argument(arg: ast35.arg, default: Optional[ast35.expr], kind: int) -> Argument:
+        def make_argument(arg: ast35.arg, default: Optional[ast35.expr], kind: Arg) -> Argument:
             arg_type = TypeConverter(line=line).visit(arg.annotation)
             return Argument(Var(arg.arg), arg_type, self.visit(default), kind)
 
@@ -338,28 +337,28 @@ class ASTConverter(ast35.NodeTransformer):
         num_no_defaults = len(args.args) - len(args.defaults)
         # positional arguments without defaults
         for a in args.args[:num_no_defaults]:
-            new_args.append(make_argument(a, None, ARG_POS))
+            new_args.append(make_argument(a, None, Arg.POS))
 
         # positional arguments with defaults
         for a, d in zip(args.args[num_no_defaults:], args.defaults):
-            new_args.append(make_argument(a, d, ARG_OPT))
+            new_args.append(make_argument(a, d, Arg.OPT))
 
         # *arg
         if args.vararg is not None:
-            new_args.append(make_argument(args.vararg, None, ARG_STAR))
+            new_args.append(make_argument(args.vararg, None, Arg.STAR))
 
         num_no_kw_defaults = len(args.kwonlyargs) - len(args.kw_defaults)
         # keyword-only arguments without defaults
         for a in args.kwonlyargs[:num_no_kw_defaults]:
-            new_args.append(make_argument(a, None, ARG_NAMED))
+            new_args.append(make_argument(a, None, Arg.NAMED))
 
         # keyword-only arguments with defaults
         for a, d in zip(args.kwonlyargs[num_no_kw_defaults:], args.kw_defaults):
-            new_args.append(make_argument(a, d, ARG_NAMED))
+            new_args.append(make_argument(a, d, Arg.NAMED))
 
         # **kwarg
         if args.kwarg is not None:
-            new_args.append(make_argument(args.kwarg, None, ARG_STAR2))
+            new_args.append(make_argument(args.kwarg, None, Arg.STAR2))
 
         return new_args
 
@@ -692,8 +691,8 @@ class ASTConverter(ast35.NodeTransformer):
         arg_types = self.visit_list(
             [a.value if isinstance(a, ast35.Starred) else a for a in n.args] +
             [k.value for k in n.keywords])
-        arg_kinds = ([ARG_STAR if isinstance(a, ast35.Starred) else ARG_POS for a in n.args] +
-                     [ARG_STAR2 if is_star2arg(k) else ARG_NAMED for k in n.keywords])
+        arg_kinds = ([Arg.STAR if isinstance(a, ast35.Starred) else Arg.POS for a in n.args] +
+                     [Arg.STAR2 if is_star2arg(k) else Arg.NAMED for k in n.keywords])
         return CallExpr(self.visit(n.func),
                         arg_types,
                         arg_kinds,

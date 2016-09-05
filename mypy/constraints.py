@@ -1,6 +1,6 @@
 """Type inference constraints."""
 
-from typing import List, Optional, cast
+from typing import List, Optional
 
 from mypy.types import (
     CallableType, Type, TypeVisitor, UnboundType, AnyType, Void, NoneTyp, TypeVarType,
@@ -40,7 +40,7 @@ class Constraint:
 
 
 def infer_constraints_for_callable(
-        callee: CallableType, arg_types: List[Optional[Type]], arg_kinds: List[int],
+        callee: CallableType, arg_types: List[Optional[Type]], arg_kinds: List[nodes.Arg],
         formal_to_actual: List[List[int]]) -> List[Constraint]:
     """Infer type variable constraints for a callable and actual arguments.
 
@@ -63,14 +63,14 @@ def infer_constraints_for_callable(
     return constraints
 
 
-def get_actual_type(arg_type: Type, kind: int,
+def get_actual_type(arg_type: Type, kind: nodes.Arg,
                     tuple_counter: List[int]) -> Type:
     """Return the type of an actual argument with the given kind.
 
     If the argument is a *arg, return the individual argument item.
     """
 
-    if kind == nodes.ARG_STAR:
+    if kind == nodes.Arg.STAR:
         if isinstance(arg_type, Instance):
             if arg_type.type.fullname() == 'builtins.list':
                 # List *arg.
@@ -86,7 +86,7 @@ def get_actual_type(arg_type: Type, kind: int,
             return arg_type.items[tuple_counter[0] - 1]
         else:
             return AnyType()
-    elif kind == nodes.ARG_STAR2:
+    elif kind == nodes.Arg.STAR2:
         if isinstance(arg_type, Instance) and (arg_type.type.fullname() == 'builtins.dict'):
             # Dict **arg. TODO more general (Mapping)
             return arg_type.args[1]

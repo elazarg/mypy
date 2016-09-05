@@ -44,7 +44,7 @@ import subprocess
 import sys
 import textwrap
 
-from typing import Any, List, Dict, Tuple, Iterable, Optional, NamedTuple, Set
+from typing import List, Dict, Tuple, Iterable, Optional, NamedTuple, Set, Any
 
 import mypy.build
 import mypy.parse
@@ -54,7 +54,7 @@ from mypy import defaults
 from mypy.nodes import (
     Node, IntExpr, UnaryExpr, StrExpr, BytesExpr, NameExpr, FloatExpr, MemberExpr, TupleExpr,
     ListExpr, ComparisonExpr, CallExpr, ClassDef, MypyFile, Decorator, AssignmentStmt,
-    IfStmt, ImportAll, ImportFrom, Import, FuncDef, FuncBase, ARG_STAR, ARG_STAR2, ARG_NAMED
+    IfStmt, ImportAll, ImportFrom, Import, FuncDef, FuncBase, Arg
 )
 from mypy.stubgenc import parse_all_signatures, find_unique_signatures, generate_stub_for_c_module
 from mypy.stubutil import is_c_module, write_header
@@ -252,7 +252,7 @@ class StubGenerator(mypy.traverser.TraverserVisitor):
             name = var.name()
             init_stmt = arg_.initialization_statement
             if init_stmt:
-                if kind == ARG_NAMED and '*' not in args:
+                if kind == Arg.NAMED and '*' not in args:
                     args.append('*')
                 arg = '%s=' % name
                 rvalue = init_stmt.rvalue
@@ -270,9 +270,9 @@ class StubGenerator(mypy.traverser.TraverserVisitor):
                     arg += rvalue.name
                 else:
                     arg += '...'
-            elif kind == ARG_STAR:
+            elif kind == Arg.STAR:
                 arg = '*%s' % name
-            elif kind == ARG_STAR2:
+            elif kind == Arg.STAR2:
                 arg = '**%s' % name
             else:
                 arg = name

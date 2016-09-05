@@ -1,14 +1,13 @@
 """Fix up various things after deserialization."""
 
-from typing import Any, Dict, Optional, cast
+from typing import Any, Dict, Optional
 
 from mypy.nodes import (MypyFile, SymbolNode, SymbolTable, SymbolTableNode,
                         TypeInfo, FuncDef, OverloadedFuncDef, Decorator, Var,
-                        TypeVarExpr, ClassDef,
-                        LDEF, MDEF, GDEF, MODULE_REF)
+                        TypeVarExpr, ClassDef, DefKind)
 from mypy.types import (CallableType, EllipsisType, Instance, Overloaded, TupleType,
                         TypeList, TypeVarType, UnboundType, UnionType, TypeVisitor,
-                        UninhabitedType, TypeType)
+                        TypeType)
 from mypy.visitor import NodeVisitor
 
 
@@ -23,7 +22,8 @@ def fixup_module_pass_two(tree: MypyFile, modules: Dict[str, MypyFile]) -> None:
 
 def compute_all_mros(symtab: SymbolTable, modules: Dict[str, MypyFile]) -> None:
     for key, value in symtab.items():
-        if value.kind in (LDEF, MDEF, GDEF) and isinstance(value.node, TypeInfo):
+        if (value.kind in (DefKind.LDEF, DefKind.MDEF, DefKind.GDEF)
+                and isinstance(value.node, TypeInfo)):
             info = value.node
             info.calculate_mro()
             assert info.mro, "No MRO calculated for %s" % (info.fullname(),)
@@ -270,7 +270,7 @@ def store_qualified(modules: Dict[str, MypyFile], name: str, info: SymbolNode) -
             assert not rest, "Cannot find %s for %s" % (key, name)
             # Store it.
             # TODO: kind might be something else?
-            names[key] = SymbolTableNode(GDEF, info)
+            names[key] = SymbolTableNode(DefKind.GDEF, info)
             return
         stnode = names[key]
         node = stnode.node

@@ -14,17 +14,16 @@ from mypy.lex import (
     UnicodeLit, FloatLit, Op, Indent, Keyword, Punct, LexError, ComplexLit,
     EllipsisToken
 )
-import mypy.types
 from mypy.nodes import (
     MypyFile, Import, Node, ImportAll, ImportFrom, FuncDef, OverloadedFuncDef,
-    ClassDef, Decorator, Block, Var, OperatorAssignmentStmt,
+    ClassDef, Decorator, Block, Var, OperatorAssignmentStmt, ImportBase,
     ExpressionStmt, AssignmentStmt, ReturnStmt, RaiseStmt, AssertStmt,
     DelStmt, BreakStmt, ContinueStmt, PassStmt, GlobalDecl,
     WhileStmt, ForStmt, IfStmt, TryStmt, WithStmt,
     TupleExpr, GeneratorExpr, ListComprehension, ListExpr, ConditionalExpr,
     DictExpr, SetExpr, NameExpr, IntExpr, StrExpr, BytesExpr, UnicodeExpr,
     FloatExpr, CallExpr, SuperExpr, MemberExpr, IndexExpr, SliceExpr, OpExpr,
-    UnaryExpr, FuncExpr, PrintStmt, ImportBase, ComparisonExpr,
+    UnaryExpr, FuncExpr, PrintStmt, ComparisonExpr,
     StarExpr, YieldFromExpr, NonlocalDecl, DictionaryComprehension,
     SetComprehension, ComplexExpr, EllipsisExpr, YieldExpr, ExecStmt, Argument,
     BackquoteExpr
@@ -34,7 +33,7 @@ from mypy import nodes
 from mypy.errors import Errors, CompileError
 from mypy.types import Type, CallableType, AnyType, UnboundType
 from mypy.parsetype import (
-    parse_type, parse_types, parse_signature, TypeParseError, parse_str_as_signature
+    parse_type, parse_types, parse_signature, TypeParseError
 )
 from mypy.options import Options
 
@@ -452,7 +451,7 @@ class Parser:
                         line=def_tok.line)
                 elif is_method and len(sig.arg_kinds) < len(arg_kinds):
                     self.check_argument_kinds(arg_kinds,
-                                              [nodes.ARG_POS] + sig.arg_kinds,
+                                              [nodes.Arg.POS] + sig.arg_kinds,
                                               def_tok.line)
                     # Add implicit 'self' argument to signature.
                     first_arg = [AnyType()]  # type: List[Type]
@@ -495,7 +494,7 @@ class Parser:
             self.errors.pop_function()
             self.is_class_body = is_method
 
-    def check_argument_kinds(self, funckinds: List[int], sigkinds: List[int],
+    def check_argument_kinds(self, funckinds: List[nodes.Arg], sigkinds: List[nodes.Arg],
                              line: int) -> None:
         """Check that arguments are consistent.
 
@@ -511,8 +510,8 @@ class Parser:
             else:
                 self.fail("Type signature has too many arguments", line)
             return
-        for kind, token in [(nodes.ARG_STAR, '*'),
-                            (nodes.ARG_STAR2, '**')]:
+        for kind, token in [(nodes.Arg.STAR, '*'),
+                            (nodes.Arg.STAR2, '**')]:
             if ((funckinds.count(kind) != sigkinds.count(kind)) or
                     (kind in funckinds and sigkinds.index(kind) != funckinds.index(kind))):
                 self.fail(
@@ -690,9 +689,9 @@ class Parser:
         name = self.expect_type(Name)
         variable = Var(name.string)
         if asterisk.string == '*':
-            kind = nodes.ARG_STAR
+            kind = nodes.Arg.STAR
         else:
-            kind = nodes.ARG_STAR2
+            kind = nodes.Arg.STAR2
 
         type = None
         if no_type_checks:
@@ -732,12 +731,12 @@ class Parser:
             rvalue.set_line(line)
             decompose = AssignmentStmt([paren_arg], rvalue)
             decompose.set_line(line)
-        kind = nodes.ARG_POS
+        kind = nodes.Arg.POS
         initializer = None
         if self.current_str() == '=':
             self.expect('=')
             initializer = self.parse_expression(precedence[','])
-            kind = nodes.ARG_OPT
+            kind = nodes.Arg.OPT
         var = Var(arg_name)
         arg_names = self.find_tuple_arg_argument_names(paren_arg)
         return Argument(var, None, initializer, kind), decompose, arg_names
@@ -777,14 +776,14 @@ class Parser:
             self.expect('=')
             initializer = self.parse_expression(precedence[','])
             if require_named:
-                kind = nodes.ARG_NAMED
+                kind = nodes.Arg.NAMED
             else:
-                kind = nodes.ARG_OPT
+                kind = nodes.Arg.OPT
         else:
             if require_named:
-                kind = nodes.ARG_NAMED
+                kind = nodes.Arg.NAMED
             else:
-                kind = nodes.ARG_POS
+                kind = nodes.Arg.POS
 
         return Argument(variable, type, initializer, kind), require_named
 
@@ -808,16 +807,16 @@ class Parser:
         else:
             return None
 
-    def verify_argument_kinds(self, kinds: List[int], line: int) -> None:
+    def verify_argument_kinds(self, kinds: List[nodes.Arg], line: int) -> None:
         found = set()  # type: Set[int]
         for i, kind in enumerate(kinds):
-            if kind == nodes.ARG_POS and found & set([nodes.ARG_OPT,
-                                                      nodes.ARG_STAR,
-                                                      nodes.ARG_STAR2]):
+            if kind == nodes.Arg.POS and found & set([nodes.Arg.OPT,
+                                                      nodes.Arg.STAR,
+                                                      nodes.Arg.STAR2]):
                 self.fail('Invalid argument list', line)
-            elif kind == nodes.ARG_STAR and nodes.ARG_STAR in found:
+            elif kind == nodes.Arg.STAR and nodes.Arg.STAR in found:
                 self.fail('Invalid argument list', line)
-            elif kind == nodes.ARG_STAR2 and i != len(kinds) - 1:
+            elif kind == nodes.Arg.STAR2 and i != len(kinds) - 1:
                 self.fail('Invalid argument list', line)
             found.add(kind)
 
@@ -1636,7 +1635,7 @@ class Parser:
         node = CallExpr(callee, args, kinds, names)
         return node
 
-    def parse_arg_expr(self) -> Tuple[List[Node], List[int], List[str]]:
+    def parse_arg_expr(self) -> Tuple[List[Node], List[nodes.Arg], List[str]]:
         """Parse arguments in a call expression (within '(' and ')').
 
         Return a tuple with these items:
@@ -1645,7 +1644,7 @@ class Parser:
           argument names (for named arguments; None for ordinary args)
         """
         args = []   # type: List[Node]
-        kinds = []  # type: List[int]
+        kinds = []  # type: List[nodes.Arg]
         names = []  # type: List[str]
         var_arg = False
         dict_arg = False
@@ -1655,24 +1654,24 @@ class Parser:
                 # Named argument
                 name = self.expect_type(Name)
                 self.expect('=')
-                kinds.append(nodes.ARG_NAMED)
+                kinds.append(nodes.Arg.NAMED)
                 names.append(name.string)
                 named_args = True
             elif (self.current_str() == '*' and not var_arg and not dict_arg):
                 # *args
                 var_arg = True
                 self.expect('*')
-                kinds.append(nodes.ARG_STAR)
+                kinds.append(nodes.Arg.STAR)
                 names.append(None)
             elif self.current_str() == '**':
                 # **kwargs
                 self.expect('**')
                 dict_arg = True
-                kinds.append(nodes.ARG_STAR2)
+                kinds.append(nodes.Arg.STAR2)
                 names.append(None)
             elif not var_arg and not named_args:
                 # Ordinary argument
-                kinds.append(nodes.ARG_POS)
+                kinds.append(nodes.Arg.POS)
                 names.append(None)
             else:
                 self.parse_error()

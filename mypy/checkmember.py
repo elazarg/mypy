@@ -1,14 +1,14 @@
 """Type checking of attribute access"""
 
-from typing import cast, Callable, List, Dict, Optional
+from typing import cast, Callable, Optional
 
 from mypy.types import (
-    Type, Instance, AnyType, TupleType, CallableType, FunctionLike, TypeVarId, TypeVarDef,
-    Overloaded, TypeVarType, TypeTranslator, UnionType, PartialType,
+    Type, Instance, AnyType, TupleType, CallableType, FunctionLike, TypeVarDef,
+    Overloaded, TypeVarType, UnionType, PartialType,
     DeletedType, NoneTyp, TypeType
 )
 from mypy.nodes import TypeInfo, FuncBase, Var, FuncDef, SymbolNode, Context, MypyFile
-from mypy.nodes import ARG_POS, ARG_STAR, ARG_STAR2, OpExpr, ComparisonExpr
+from mypy.nodes import Arg
 from mypy.nodes import function_type, Decorator, OverloadedFuncDef
 from mypy.messages import MessageBuilder
 from mypy.maptype import map_instance_to_supertype
@@ -288,7 +288,7 @@ def lookup_member_var_or_accessor(info: TypeInfo, name: str,
 def check_method_type(functype: FunctionLike, itype: Instance, is_classmethod: bool,
                       context: Context, msg: MessageBuilder) -> None:
     for item in functype.items():
-        if not item.arg_types or item.arg_kinds[0] not in (ARG_POS, ARG_STAR):
+        if not item.arg_types or item.arg_kinds[0] not in (Arg.POS, Arg.STAR):
             # No positional first (self) argument (*args is okay).
             msg.invalid_method_type(item, context)
         elif not is_classmethod:
@@ -411,7 +411,7 @@ def type_object_type(info: TypeInfo, builtin_type: Callable[[str], Instance]) ->
             if info.fallback_to_any:
                 # Construct a universal callable as the prototype.
                 sig = CallableType(arg_types=[AnyType(), AnyType()],
-                                   arg_kinds=[ARG_STAR, ARG_STAR2],
+                                   arg_kinds=[Arg.STAR, Arg.STAR2],
                                    arg_names=["_args", "_kwds"],
                                    ret_type=AnyType(),
                                    fallback=builtin_type('builtins.function'))

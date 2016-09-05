@@ -1,12 +1,13 @@
 """Abstract syntax tree node classes (i.e. parse tree)."""
 
 import os
-import re
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod
 
 from typing import (
     Any, TypeVar, List, Tuple, cast, Set, Dict, Union, Optional
 )
+
+from enum import IntEnum
 
 from mypy.lex import Token
 import mypy.strconv
@@ -33,23 +34,24 @@ JsonDict = Dict[str, Any]
 # Symbol table node kinds
 #
 # TODO rename to use more descriptive names
+class DefKind(IntEnum):
+    LDEF = 0  # type: int
+    GDEF = 1  # type: int
+    MDEF = 2  # type: int
+    MODULE_REF = 3  # type: int
 
-LDEF = 0  # type: int
-GDEF = 1  # type: int
-MDEF = 2  # type: int
-MODULE_REF = 3  # type: int
-# Type variable declared using TypeVar(...) has kind UNBOUND_TVAR. It's not
-# valid as a type. A type variable is valid as a type (kind BOUND_TVAR) within
-# (1) a generic class that uses the type variable as a type argument or
-# (2) a generic function that refers to the type variable in its signature.
-UNBOUND_TVAR = 4  # type: int
-BOUND_TVAR = 5  # type: int
-TYPE_ALIAS = 6  # type: int
-# Placeholder for a name imported via 'from ... import'. Second phase of
-# semantic will replace this the actual imported reference. This is
-# needed so that we can detect whether a name has been imported during
-# XXX what?
-UNBOUND_IMPORTED = 7  # type: int
+    # Type variable declared using TypeVar(...) has kind UNBOUND_TVAR. It's not
+    # valid as a type. A type variable is valid as a type (kind BOUND_TVAR) within
+    # (1) a generic class that uses the type variable as a type argument or
+    # (2) a generic function that refers to the type variable in its signature.
+    UNBOUND_TVAR = 4  # type: int
+    BOUND_TVAR = 5  # type: int
+    TYPE_ALIAS = 6  # type: int
+    # Placeholder for a name imported via 'from ... import'. Second phase of
+    # semantic will replace this the actual imported reference. This is
+    # needed so that we can detect whether a name has been imported during
+    # XXX what?
+    UNBOUND_IMPORTED = 7  # type: int
 
 
 LITERAL_YES = 2
@@ -60,14 +62,14 @@ LITERAL_NO = 0
 ENUM_BASECLASS = "enum.Enum"
 
 node_kinds = {
-    LDEF: 'Ldef',
-    GDEF: 'Gdef',
-    MDEF: 'Mdef',
-    MODULE_REF: 'ModuleRef',
-    UNBOUND_TVAR: 'UnboundTvar',
-    BOUND_TVAR: 'Tvar',
-    TYPE_ALIAS: 'TypeAlias',
-    UNBOUND_IMPORTED: 'UnboundImported',
+    DefKind.LDEF: 'Ldef',
+    DefKind.GDEF: 'Gdef',
+    DefKind.MDEF: 'Mdef',
+    DefKind.MODULE_REF: 'ModuleRef',
+    DefKind.UNBOUND_TVAR: 'UnboundTvar',
+    DefKind.BOUND_TVAR: 'Tvar',
+    DefKind.TYPE_ALIAS: 'TypeAlias',
+    DefKind.UNBOUND_IMPORTED: 'UnboundImported',
 }
 inverse_node_kinds = {_kind: _name for _name, _kind in node_kinds.items()}
 
@@ -340,17 +342,41 @@ class OverloadedFuncDef(FuncBase, Statement):
         return res
 
 
+# Kinds of arguments
+
+class Arg(IntEnum):
+    # Positional argument
+    POS = 0  # type: int
+    # Positional, optional argument (functions only, not calls)
+    OPT = 1  # type: int
+    # *arg argument
+    STAR = 2  # type: int
+    # Keyword argument x=y in call, or keyword-only function arg
+    NAMED = 3  # type: int
+    # **arg argument
+    STAR2 = 4  # type: int
+
+    def serialize(self) -> JsonDict:
+        return {'.class': 'Arg',
+                'value': self.value()}
+
+    @classmethod
+    def deserialize(cls, data: JsonDict) -> 'Arg':
+        assert data['.class'] == 'Arg'
+        return Arg(data['value'])
+
+
 class Argument(Node):
     """A single argument in a FuncItem."""
 
     variable = None  # type: Var
     type_annotation = None  # type: Optional[mypy.types.Type]
     initializater = None  # type: Optional[Expression]
-    kind = None  # type: int
+    kind = None  # type: Arg
     initialization_statement = None  # type: Optional[AssignmentStmt]
 
     def __init__(self, variable: 'Var', type_annotation: 'Optional[mypy.types.Type]',
-            initializer: Optional[Expression], kind: int,
+            initializer: Optional[Expression], kind: Arg,
             initialization_statement: Optional['AssignmentStmt'] = None) -> None:
         self.variable = variable
 
@@ -427,7 +453,7 @@ class FuncItem(FuncBase):
                  typ: 'mypy.types.FunctionLike' = None) -> None:
         self.arguments = arguments
         arg_kinds = [arg.kind for arg in self.arguments]
-        self.max_pos = arg_kinds.count(ARG_POS) + arg_kinds.count(ARG_OPT)
+        self.max_pos = arg_kinds.count(Arg.POS) + arg_kinds.count(Arg.OPT)
         self.body = body
         self.type = typ
         self.expanded = []
@@ -1091,7 +1117,7 @@ class StarExpr(Expression):
 class RefExpr(Expression):
     """Abstract base class for name-like constructs"""
 
-    kind = None  # type: int      # LDEF/GDEF/MDEF/... (None if not available)
+    kind = None  # type: DefKind      # LDEF/GDEF/MDEF/... (None if not available)
     node = None  # type: SymbolNode  # Var, FuncDef or TypeInfo that describes this
     fullname = None  # type: str  # Fully qualified name (or name if not global)
 
@@ -1161,20 +1187,6 @@ class MemberExpr(RefExpr):
         return visitor.visit_member_expr(self)
 
 
-# Kinds of arguments
-
-# Positional argument
-ARG_POS = 0  # type: int
-# Positional, optional argument (functions only, not calls)
-ARG_OPT = 1  # type: int
-# *arg argument
-ARG_STAR = 2  # type: int
-# Keyword argument x=y in call, or keyword-only function arg
-ARG_NAMED = 3  # type: int
-# **arg argument
-ARG_STAR2 = 4  # type: int
-
-
 class CallExpr(Expression):
     """Call expression.
 
@@ -1184,14 +1196,14 @@ class CallExpr(Expression):
 
     callee = None  # type: Expression
     args = None  # type: List[Expression]
-    arg_kinds = None  # type: List[int]  # ARG_ constants
+    arg_kinds = None  # type: List[Arg]  # Arg. constants
     # Each name can be None if not a keyword argument.
     arg_names = None  # type: List[str]
     # If not None, the node that represents the meaning of the CallExpr. For
     # cast(...) this is a CastExpr.
     analyzed = None  # type: Optional[Expression]
 
-    def __init__(self, callee: Expression, args: List[Expression], arg_kinds: List[int],
+    def __init__(self, callee: Expression, args: List[Expression], arg_kinds: List[Arg],
                  arg_names: List[str] = None, analyzed: Expression = None) -> None:
         if not arg_names:
             arg_names = [None] * len(args)
@@ -2057,7 +2069,7 @@ class SymbolTableNode:
     #  - MODULE_REF: reference to a module
     #  - TYPE_ALIAS: type alias
     #  - UNBOUND_IMPORTED: temporary kind for imported names
-    kind = None  # type: int
+    kind = None  # type: DefKind
     # AST node of definition (FuncDef/Var/TypeInfo/Decorator/TypeVarExpr,
     # or None for a bound type variable).
     node = None  # type: Optional[SymbolNode]
@@ -2074,7 +2086,7 @@ class SymbolTableNode:
     # for other nodes, optionally the name of the referenced object.
     cross_ref = None  # type: Optional[str]
 
-    def __init__(self, kind: int, node: Optional[SymbolNode], mod_id: str = None,
+    def __init__(self, kind: DefKind, node: Optional[SymbolNode], mod_id: str = None,
                  typ: 'mypy.types.Type' = None,
                  tvar_def: 'mypy.types.TypeVarDef' = None,
                  module_public: bool = True) -> None:
@@ -2129,7 +2141,7 @@ class SymbolTableNode:
             data['tvar_def'] = self.tvar_def.serialize()
         if not self.module_public:
             data['module_public'] = False
-        if self.kind == MODULE_REF:
+        if self.kind == DefKind.MODULE_REF:
             assert self.node is not None, "Missing module cross ref in %s for %s" % (prefix, name)
             data['cross_ref'] = self.node.fullname()
         else:
@@ -2258,7 +2270,7 @@ def method_type(sig: 'mypy.types.FunctionLike') -> 'mypy.types.FunctionLike':
 
 
 def method_callable(c: 'mypy.types.CallableType') -> 'mypy.types.CallableType':
-    if c.arg_kinds and c.arg_kinds[0] == ARG_STAR:
+    if c.arg_kinds and c.arg_kinds[0] == Arg.STAR:
         # The signature is of the form 'def foo(*args, ...)'.
         # In this case we shouldn't drop the first arg,
         # since self will be absorbed by the *args.

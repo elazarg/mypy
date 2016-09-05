@@ -3,7 +3,6 @@ from abc import abstractmethod
 
 from mypy.visitor import NodeVisitor
 from mypy.types import TypeVisitor
-from mypy.nodes import MODULE_REF
 import mypy.nodes as nodes
 import mypy.types as types
 from mypy.util import split_module_names

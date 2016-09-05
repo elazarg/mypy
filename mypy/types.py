@@ -3,7 +3,7 @@
 from abc import abstractmethod
 import copy
 from typing import (
-    Any, TypeVar, Dict, List, Tuple, cast, Generic, Set, Sequence, Optional, Union
+    Any, TypeVar, Dict, List, cast, Generic, Sequence, Optional, Union
 )
 
 import mypy.nodes
@@ -521,7 +521,7 @@ class CallableType(FunctionLike):
     """Type of a non-overloaded callable object (function)."""
 
     arg_types = None  # type: List[Type]  # Types of function arguments
-    arg_kinds = None  # type: List[int]   # mypy.nodes.ARG_ constants
+    arg_kinds = None  # type: List[mypy.nodes.Arg]
     arg_names = None  # type: List[str]   # None if not a keyword argument
     min_args = 0                    # Minimum number of arguments; derived from arg_kinds
     is_var_arg = False              # Is it a varargs function?  derived from arg_kinds
@@ -543,7 +543,7 @@ class CallableType(FunctionLike):
 
     def __init__(self,
                  arg_types: List[Type],
-                 arg_kinds: List[int],
+                 arg_kinds: List[mypy.nodes.Arg],
                  arg_names: List[str],
                  ret_type: Type,
                  fallback: Instance,
@@ -561,8 +561,8 @@ class CallableType(FunctionLike):
         self.arg_types = arg_types
         self.arg_kinds = arg_kinds
         self.arg_names = arg_names
-        self.min_args = arg_kinds.count(mypy.nodes.ARG_POS)
-        self.is_var_arg = mypy.nodes.ARG_STAR in arg_kinds
+        self.min_args = arg_kinds.count(mypy.nodes.Arg.POS)
+        self.is_var_arg = mypy.nodes.Arg.STAR in arg_kinds
         self.ret_type = ret_type
         self.fallback = fallback
         assert not name or '<bound method' not in name
@@ -576,7 +576,7 @@ class CallableType(FunctionLike):
 
     def copy_modified(self,
                       arg_types: List[Type] = _dummy,
-                      arg_kinds: List[int] = _dummy,
+                      arg_kinds: List[mypy.nodes.Arg] = _dummy,
                       arg_names: List[str] = _dummy,
                       ret_type: Type = _dummy,
                       fallback: Instance = _dummy,
@@ -1228,17 +1228,17 @@ class TypeStrVisitor(TypeVisitor[str]):
         for i in range(len(t.arg_types)):
             if s != '':
                 s += ', '
-            if t.arg_kinds[i] == mypy.nodes.ARG_NAMED and not bare_asterisk:
+            if t.arg_kinds[i] == mypy.nodes.Arg.NAMED and not bare_asterisk:
                 s += '*, '
                 bare_asterisk = True
-            if t.arg_kinds[i] == mypy.nodes.ARG_STAR:
+            if t.arg_kinds[i] == mypy.nodes.Arg.STAR:
                 s += '*'
-            if t.arg_kinds[i] == mypy.nodes.ARG_STAR2:
+            if t.arg_kinds[i] == mypy.nodes.Arg.STAR2:
                 s += '**'
             if t.arg_names[i]:
                 s += t.arg_names[i] + ': '
             s += str(t.arg_types[i])
-            if t.arg_kinds[i] == mypy.nodes.ARG_OPT:
+            if t.arg_kinds[i] == mypy.nodes.Arg.OPT:
                 s += ' ='
 
         s = '({})'.format(s)

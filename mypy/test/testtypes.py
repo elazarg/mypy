@@ -14,7 +14,7 @@ from mypy.types import (
     Instance, NoneTyp, ErrorType, Overloaded, TypeType, UnionType, UninhabitedType,
     true_only, false_only
 )
-from mypy.nodes import ARG_POS, ARG_OPT, ARG_STAR, CONTRAVARIANT, INVARIANT, COVARIANT
+from mypy.nodes import Arg, CONTRAVARIANT, INVARIANT, COVARIANT
 from mypy.subtypes import is_subtype, is_more_precise, is_proper_subtype
 from mypy.typefixture import TypeFixture, InterfaceTypeFixture
 
@@ -43,7 +43,7 @@ class TypesSuite(Suite):
 
     def test_callable_type(self):
         c = CallableType([self.x, self.y],
-                         [ARG_POS, ARG_POS],
+                         [Arg.POS, Arg.POS],
                          [None, None],
                          AnyType(), self.function)
         assert_equal(str(c), 'def (X?, Y?) -> Any')
@@ -52,23 +52,23 @@ class TypesSuite(Suite):
         assert_equal(str(c2), 'def ()')
 
     def test_callable_type_with_default_args(self):
-        c = CallableType([self.x, self.y], [ARG_POS, ARG_OPT], [None, None],
+        c = CallableType([self.x, self.y], [Arg.POS, Arg.OPT], [None, None],
                      AnyType(), self.function)
         assert_equal(str(c), 'def (X?, Y? =) -> Any')
 
-        c2 = CallableType([self.x, self.y], [ARG_OPT, ARG_OPT], [None, None],
+        c2 = CallableType([self.x, self.y], [Arg.OPT, Arg.OPT], [None, None],
                       AnyType(), self.function)
         assert_equal(str(c2), 'def (X? =, Y? =) -> Any')
 
     def test_callable_type_with_var_args(self):
-        c = CallableType([self.x], [ARG_STAR], [None], AnyType(), self.function)
+        c = CallableType([self.x], [Arg.STAR], [None], AnyType(), self.function)
         assert_equal(str(c), 'def (*X?) -> Any')
 
-        c2 = CallableType([self.x, self.y], [ARG_POS, ARG_STAR],
+        c2 = CallableType([self.x, self.y], [Arg.POS, Arg.STAR],
                       [None, None], AnyType(), self.function)
         assert_equal(str(c2), 'def (X?, *Y?) -> Any')
 
-        c3 = CallableType([self.x, self.y], [ARG_OPT, ARG_STAR], [None, None],
+        c3 = CallableType([self.x, self.y], [Arg.OPT, Arg.STAR], [None, None],
                       AnyType(), self.function)
         assert_equal(str(c3), 'def (X? =, *Y?) -> Any')
 
@@ -83,7 +83,7 @@ class TypesSuite(Suite):
                      'X in (X?, Y?)')
 
     def test_generic_function_type(self):
-        c = CallableType([self.x, self.y], [ARG_POS, ARG_POS], [None, None],
+        c = CallableType([self.x, self.y], [Arg.POS, Arg.POS], [None, None],
                      self.y, self.function, name=None,
                      variables=[TypeVarDef('X', -1, None, self.fx.o)])
         assert_equal(str(c), 'def [X] (X?, Y?) -> Y?')
@@ -338,7 +338,7 @@ class TypeOpsSuite(Suite):
             tv.append(TypeVarDef(v, n, None, self.fx.o))
             n -= 1
         return CallableType(list(a[:-1]),
-                            [ARG_POS] * (len(a) - 1),
+                            [Arg.POS] * (len(a) - 1),
                             [None] * (len(a) - 1),
                             a[-1],
                             self.fx.function,
@@ -619,7 +619,7 @@ class JoinSuite(Suite):
         a1, ... an and return type r.
         """
         n = len(a) - 1
-        return CallableType(a[:-1], [ARG_POS] * n, [None] * n,
+        return CallableType(a[:-1], [Arg.POS] * n, [None] * n,
                         a[-1], self.fx.function)
 
     def type_callable(self, *a):
@@ -628,7 +628,7 @@ class JoinSuite(Suite):
         represents a type.
         """
         n = len(a) - 1
-        return CallableType(a[:-1], [ARG_POS] * n, [None] * n,
+        return CallableType(a[:-1], [Arg.POS] * n, [None] * n,
                         a[-1], self.fx.type_type)
 
 
@@ -835,5 +835,5 @@ class MeetSuite(Suite):
         """
         n = len(a) - 1
         return CallableType(a[:-1],
-                            [ARG_POS] * n, [None] * n,
+                            [Arg.POS] * n, [None] * n,
                             a[-1], self.fx.function)

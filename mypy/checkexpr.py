@@ -16,7 +16,7 @@ from mypy.nodes import (
     ListComprehension, GeneratorExpr, SetExpr, MypyFile, Decorator,
     ConditionalExpr, ComparisonExpr, TempNode, SetComprehension,
     DictionaryComprehension, ComplexExpr, EllipsisExpr, StarExpr,
-    TypeAliasExpr, BackquoteExpr, ARG_POS, ARG_NAMED, ARG_STAR2, MODULE_REF,
+    TypeAliasExpr, BackquoteExpr, Arg, DefKind
 )
 from mypy.nodes import function_type
 from mypy import nodes
@@ -52,8 +52,8 @@ def extract_refexpr_names(expr: RefExpr) -> Set[str]:
     Note that currently, the only two subclasses of RefExpr are NameExpr and
     MemberExpr."""
     output = set()  # type: Set[str]
-    while expr.kind == MODULE_REF or expr.fullname is not None:
-        if expr.kind == MODULE_REF:
+    while expr.kind == DefKind.MODULE_REF or expr.fullname is not None:
+        if expr.kind == DefKind.MODULE_REF:
             output.add(expr.fullname)
 
         if isinstance(expr, NameExpr):
@@ -199,7 +199,7 @@ class ExpressionChecker:
                 # Sometimes we can infer a full type for a partial List, Dict or Set type.
                 # TODO: Don't infer argument expression twice.
                 if (typename in self.item_args and methodname in self.item_args[typename]
-                        and e.arg_kinds == [ARG_POS]):
+                        and e.arg_kinds == [Arg.POS]):
                     item_type = self.accept(e.args[0])
                     full_item_type = UnionType.make_simplified_union(
                         [item_type, partial_type.inner_types[0]])
@@ -208,7 +208,7 @@ class ExpressionChecker:
                         del partial_types[var]
                 elif (typename in self.container_args
                       and methodname in self.container_args[typename]
-                      and e.arg_kinds == [ARG_POS]):
+                      and e.arg_kinds == [Arg.POS]):
                     arg_type = self.accept(e.args[0])
                     if isinstance(arg_type, Instance):
                         arg_typename = arg_type.type.fullname()
@@ -235,7 +235,7 @@ class ExpressionChecker:
                                e.arg_names, callable_node=e.callee)[0]
 
     def check_call(self, callee: Type, args: List[Node],
-                   arg_kinds: List[int], context: Context,
+                   arg_kinds: List[Arg], context: Context,
                    arg_names: List[str] = None,
                    callable_node: Node = None,
                    arg_messages: MessageBuilder = None) -> Tuple[Type, Type]:
@@ -248,7 +248,7 @@ class ExpressionChecker:
         Arguments:
           callee: type of the called value
           args: actual argument expressions
-          arg_kinds: contains nodes.ARG_* constant for each argument in args
+          arg_kinds: contains nodes.Arg.* constant for each argument in args
             describing whether the argument is positional, *arg, etc.
           arg_names: names of arguments (optional)
           callable_node: associate the inferred callable type to this node,
@@ -402,7 +402,7 @@ class ExpressionChecker:
         return res
 
     def infer_arg_types_in_context2(
-            self, callee: CallableType, args: List[Node], arg_kinds: List[int],
+            self, callee: CallableType, args: List[Node], arg_kinds: List[Arg],
             formal_to_actual: List[List[int]]) -> List[Type]:
         """Infer argument expression types using a callable type as context.
 
@@ -415,7 +415,7 @@ class ExpressionChecker:
 
         for i, actuals in enumerate(formal_to_actual):
             for ai in actuals:
-                if arg_kinds[ai] not in (nodes.ARG_STAR, nodes.ARG_STAR2):
+                if arg_kinds[ai] not in (nodes.Arg.STAR, nodes.Arg.STAR2):
                     res[ai] = self.accept(args[ai], callee.arg_types[i])
 
         # Fill in the rest of the argument types.
@@ -469,7 +469,7 @@ class ExpressionChecker:
 
     def infer_function_type_arguments(self, callee_type: CallableType,
                                       args: List[Node],
-                                      arg_kinds: List[int],
+                                      arg_kinds: List[Arg],
                                       formal_to_actual: List[List[int]],
                                       context: Context) -> CallableType:
         """Infer the type arguments for a generic callee type.
@@ -512,7 +512,7 @@ class ExpressionChecker:
                     inferred_args, context)
 
             if callee_type.special_sig == 'dict' and len(inferred_args) == 2 and (
-                    ARG_NAMED in arg_kinds or ARG_STAR2 in arg_kinds):
+                    Arg.NAMED in arg_kinds or Arg.STAR2 in arg_kinds):
                 # HACK: Infer str key type for dict(...) with keyword args. The type system
                 #       can't represent this so we special case it, as this is a pretty common
                 #       thing. This doesn't quite work with all possible subclasses of dict
@@ -534,7 +534,7 @@ class ExpressionChecker:
     def infer_function_type_arguments_pass2(
             self, callee_type: CallableType,
             args: List[Node],
-            arg_kinds: List[int],
+            arg_kinds: List[Arg],
             formal_to_actual: List[List[int]],
             inferred_args: List[Type],
             context: Context) -> Tuple[CallableType, List[Type]]:
@@ -607,7 +607,7 @@ class ExpressionChecker:
                                                            inferred_args, context))
 
     def check_argument_count(self, callee: CallableType, actual_types: List[Type],
-                             actual_kinds: List[int], actual_names: List[str],
+                             actual_kinds: List[Arg], actual_names: List[str],
                              formal_to_actual: List[List[int]],
                              context: Context,
                              messages: Optional[MessageBuilder]) -> bool:
@@ -630,11 +630,11 @@ class ExpressionChecker:
         ok = True  # False if we've found any error.
         for i, kind in enumerate(actual_kinds):
             if i not in all_actuals and (
-                    kind != nodes.ARG_STAR or
+                    kind != nodes.Arg.STAR or
                     not is_empty_tuple(actual_types[i])):
                 # Extra actual: not matched by a formal argument.
                 ok = False
-                if kind != nodes.ARG_NAMED:
+                if kind != nodes.Arg.NAMED:
                     if messages:
                         messages.too_many_arguments(callee, context)
                 else:
@@ -642,8 +642,8 @@ class ExpressionChecker:
                         messages.unexpected_keyword_argument(
                             callee, actual_names[i], context)
                     is_unexpected_arg_error = True
-            elif kind == nodes.ARG_STAR and (
-                    nodes.ARG_STAR not in formal_kinds):
+            elif kind == nodes.Arg.STAR and (
+                    nodes.Arg.STAR not in formal_kinds):
                 actual_type = actual_types[i]
                 if isinstance(actual_type, TupleType):
                     if all_actuals.count(i) < len(actual_type.items):
@@ -655,29 +655,29 @@ class ExpressionChecker:
                 # number of positional arguments. This may succeed at runtime.
 
         for i, kind in enumerate(formal_kinds):
-            if kind == nodes.ARG_POS and (not formal_to_actual[i] and
+            if kind == nodes.Arg.POS and (not formal_to_actual[i] and
                                           not is_unexpected_arg_error):
                 # No actual for a mandatory positional formal.
                 if messages:
                     messages.too_few_arguments(callee, context, actual_names)
                 ok = False
-            elif kind in [nodes.ARG_POS, nodes.ARG_OPT,
-                          nodes.ARG_NAMED] and is_duplicate_mapping(
+            elif kind in [nodes.Arg.POS, nodes.Arg.OPT,
+                          nodes.Arg.NAMED] and is_duplicate_mapping(
                     formal_to_actual[i], actual_kinds):
                 if (self.chk.typing_mode_full() or
                         isinstance(actual_types[formal_to_actual[i][0]], TupleType)):
                     if messages:
                         messages.duplicate_argument_value(callee, i, context)
                     ok = False
-            elif (kind == nodes.ARG_NAMED and formal_to_actual[i] and
-                  actual_kinds[formal_to_actual[i][0]] != nodes.ARG_NAMED):
+            elif (kind == nodes.Arg.NAMED and formal_to_actual[i] and
+                  actual_kinds[formal_to_actual[i][0]] not in [nodes.Arg.NAMED, nodes.Arg.STAR2]):
                 # Positional argument when expecting a keyword argument.
                 if messages:
                     messages.too_many_positional_arguments(callee, context)
                 ok = False
         return ok
 
-    def check_argument_types(self, arg_types: List[Type], arg_kinds: List[int],
+    def check_argument_types(self, arg_types: List[Type], arg_kinds: List[Arg],
                              callee: CallableType,
                              formal_to_actual: List[List[int]],
                              context: Context,
@@ -697,17 +697,17 @@ class ExpressionChecker:
                 if arg_type is None:
                     continue  # Some kind of error was already reported.
                 # Check that a *arg is valid as varargs.
-                if (arg_kinds[actual] == nodes.ARG_STAR and
+                if (arg_kinds[actual] == nodes.Arg.STAR and
                         not self.is_valid_var_arg(arg_type)):
                     messages.invalid_var_arg(arg_type, context)
-                if (arg_kinds[actual] == nodes.ARG_STAR2 and
+                if (arg_kinds[actual] == nodes.Arg.STAR2 and
                         not self.is_valid_keyword_var_arg(arg_type)):
                     messages.invalid_keyword_var_arg(arg_type, context)
                 # Get the type of an individual actual argument (for *args
                 # and **args this is the item type, not the collection type).
                 if (isinstance(arg_type, TupleType)
                         and tuple_counter[0] >= len(arg_type.items)
-                        and arg_kinds[actual] == nodes.ARG_STAR):
+                        and arg_kinds[actual] == nodes.Arg.STAR):
                     # The tuple is exhausted. Continue with further arguments.
                     continue
                 actual_type = get_actual_type(arg_type, arg_kinds[actual],
@@ -718,8 +718,8 @@ class ExpressionChecker:
 
                 # There may be some remaining tuple varargs items that haven't
                 # been checked yet. Handle them.
-                if (callee.arg_kinds[i] == nodes.ARG_STAR and
-                        arg_kinds[actual] == nodes.ARG_STAR and
+                if (callee.arg_kinds[i] == nodes.Arg.STAR and
+                        arg_kinds[actual] == nodes.Arg.STAR and
                         isinstance(arg_types[actual], TupleType)):
                     tuplet = cast(TupleType, arg_types[actual])
                     while tuple_counter[0] < len(tuplet.items):
@@ -745,7 +745,7 @@ class ExpressionChecker:
             messages.incompatible_argument(n, m, callee, original_caller_type,
                                            caller_kind, context)
 
-    def overload_call_target(self, arg_types: List[Type], arg_kinds: List[int],
+    def overload_call_target(self, arg_types: List[Type], arg_kinds: List[Arg],
                              arg_names: List[str],
                              overload: Overloaded, context: Context,
                              messages: MessageBuilder = None) -> Type:
@@ -806,7 +806,7 @@ class ExpressionChecker:
                         return m
                 return match[0]
 
-    def erased_signature_similarity(self, arg_types: List[Type], arg_kinds: List[int],
+    def erased_signature_similarity(self, arg_types: List[Type], arg_kinds: List[Arg],
                                     arg_names: List[str], callee: CallableType,
                                     context: Context) -> int:
         """Determine whether arguments could match the signature at runtime.
@@ -846,7 +846,7 @@ class ExpressionChecker:
 
         return similarity
 
-    def match_signature_types(self, arg_types: List[Type], arg_kinds: List[int],
+    def match_signature_types(self, arg_types: List[Type], arg_kinds: List[Arg],
                               arg_names: List[str], callee: CallableType,
                               context: Context) -> bool:
         """Determine whether arguments types match the signature.
@@ -1007,7 +1007,7 @@ class ExpressionChecker:
                     itertype = self.chk.analyze_iterable_item_type(right)
                     method_type = CallableType(
                         [left_type],
-                        [nodes.ARG_POS],
+                        [nodes.Arg.POS],
                         [None],
                         self.chk.bool_type(),
                         self.named_type('builtins.function'))
@@ -1071,7 +1071,7 @@ class ExpressionChecker:
         method_type = analyze_member_access(method, base_type, context, False, False, True,
                                             self.named_type, self.not_ready_callback, local_errors,
                                             chk=self.chk)
-        return self.check_call(method_type, [arg], [nodes.ARG_POS],
+        return self.check_call(method_type, [arg], [nodes.Arg.POS],
                                context, arg_messages=local_errors)
 
     def check_op(self, method: str, base_type: Type, arg: Node,
@@ -1393,7 +1393,7 @@ class ExpressionChecker:
         tv = TypeVarType(tvdef)
         constructor = CallableType(
             [tv],
-            [nodes.ARG_STAR],
+            [nodes.Arg.STAR],
             [None],
             self.chk.named_generic_type(fullname, [tv]),
             self.named_type('builtins.function'),
@@ -1402,7 +1402,7 @@ class ExpressionChecker:
         return self.check_call(constructor,
                                [(i.expr if isinstance(i, StarExpr) else i)
                                 for i in items],
-                               [(nodes.ARG_STAR if isinstance(i, StarExpr) else nodes.ARG_POS)
+                               [(nodes.Arg.STAR if isinstance(i, StarExpr) else nodes.Arg.POS)
                                 for i in items],
                                context)[0]
 
@@ -1476,13 +1476,13 @@ class ExpressionChecker:
             #   def <unnamed>(*v: Tuple[kt, vt]) -> Dict[kt, vt]: ...
             constructor = CallableType(
                 [TupleType([kt, vt], self.named_type('builtins.tuple'))],
-                [nodes.ARG_STAR],
+                [nodes.Arg.STAR],
                 [None],
                 self.chk.named_generic_type('builtins.dict', [kt, vt]),
                 self.named_type('builtins.function'),
                 name='<list>',
                 variables=[ktdef, vtdef])
-            rv = self.check_call(constructor, args, [nodes.ARG_POS] * len(args), e)[0]
+            rv = self.check_call(constructor, args, [nodes.Arg.POS] * len(args), e)[0]
         else:
             # dict(...) will be called below.
             rv = None
@@ -1493,16 +1493,16 @@ class ExpressionChecker:
                 if rv is None:
                     constructor = CallableType(
                         [self.chk.named_generic_type('typing.Mapping', [kt, vt])],
-                        [nodes.ARG_POS],
+                        [nodes.Arg.POS],
                         [None],
                         self.chk.named_generic_type('builtins.dict', [kt, vt]),
                         self.named_type('builtins.function'),
                         name='<list>',
                         variables=[ktdef, vtdef])
-                    rv = self.check_call(constructor, [arg], [nodes.ARG_POS], arg)[0]
+                    rv = self.check_call(constructor, [arg], [nodes.Arg.POS], arg)[0]
                 else:
                     method = self.analyze_external_member_access('update', rv, arg)
-                    self.check_call(method, [arg], [nodes.ARG_POS], arg)
+                    self.check_call(method, [arg], [nodes.Arg.POS], arg)
         return rv
 
     def visit_func_expr(self, e: FuncExpr) -> Type:
@@ -1630,14 +1630,14 @@ class ExpressionChecker:
             tv = TypeVarType(tvdef)
             constructor = CallableType(
                 [tv],
-                [nodes.ARG_POS],
+                [nodes.Arg.POS],
                 [None],
                 self.chk.named_generic_type(type_name, [tv]),
                 self.chk.named_type('builtins.function'),
                 name=id_for_messages,
                 variables=[tvdef])
             return self.check_call(constructor,
-                                [gen.left_expr], [nodes.ARG_POS], gen)[0]
+                                [gen.left_expr], [nodes.Arg.POS], gen)[0]
 
     def visit_dictionary_comprehension(self, e: DictionaryComprehension) -> Type:
         """Type check a dictionary comprehension."""
@@ -1652,14 +1652,14 @@ class ExpressionChecker:
             vt = TypeVarType(vtdef)
             constructor = CallableType(
                 [kt, vt],
-                [nodes.ARG_POS, nodes.ARG_POS],
+                [nodes.Arg.POS, nodes.Arg.POS],
                 [None, None],
                 self.chk.named_generic_type('builtins.dict', [kt, vt]),
                 self.chk.named_type('builtins.function'),
                 name='<dictionary-comprehension>',
                 variables=[ktdef, vtdef])
             return self.check_call(constructor,
-                                   [e.key, e.value], [nodes.ARG_POS, nodes.ARG_POS], e)[0]
+                                   [e.key, e.value], [nodes.Arg.POS, nodes.Arg.POS], e)[0]
 
     def check_for_comp(self, e: Union[GeneratorExpr, DictionaryComprehension]) -> None:
         """Check the for_comp part of comprehensions. That is the part from 'for':
@@ -1810,9 +1810,9 @@ class ExpressionChecker:
         self.chk.handle_cannot_determine_type(name, context)
 
 
-def map_actuals_to_formals(caller_kinds: List[int],
+def map_actuals_to_formals(caller_kinds: List[Arg],
                            caller_names: List[str],
-                           callee_kinds: List[int],
+                           callee_kinds: List[Arg],
                            callee_names: List[str],
                            caller_arg_type: Callable[[int],
                                                      Type]) -> List[List[int]]:
@@ -1828,52 +1828,52 @@ def map_actuals_to_formals(caller_kinds: List[int],
     map = [[] for i in range(ncallee)]  # type: List[List[int]]
     j = 0
     for i, kind in enumerate(caller_kinds):
-        if kind == nodes.ARG_POS:
+        if kind == nodes.Arg.POS:
             if j < ncallee:
-                if callee_kinds[j] in [nodes.ARG_POS, nodes.ARG_OPT,
-                                       nodes.ARG_NAMED]:
+                if callee_kinds[j] in [nodes.Arg.POS, nodes.Arg.OPT,
+                                       nodes.Arg.NAMED]:
                     map[j].append(i)
                     j += 1
-                elif callee_kinds[j] == nodes.ARG_STAR:
+                elif callee_kinds[j] == nodes.Arg.STAR:
                     map[j].append(i)
-        elif kind == nodes.ARG_STAR:
+        elif kind == nodes.Arg.STAR:
             # We need to know the actual type to map varargs.
             argt = caller_arg_type(i)
             if isinstance(argt, TupleType):
                 # A tuple actual maps to a fixed number of formals.
                 for _ in range(len(argt.items)):
                     if j < ncallee:
-                        if callee_kinds[j] != nodes.ARG_STAR2:
+                        if callee_kinds[j] != nodes.Arg.STAR2:
                             map[j].append(i)
                         else:
                             break
-                        if callee_kinds[j] != nodes.ARG_STAR:
+                        if callee_kinds[j] != nodes.Arg.STAR:
                             j += 1
             else:
                 # Assume that it is an iterable (if it isn't, there will be
                 # an error later).
                 while j < ncallee:
-                    if callee_kinds[j] in (nodes.ARG_NAMED, nodes.ARG_STAR2):
+                    if callee_kinds[j] in (nodes.Arg.NAMED, nodes.Arg.STAR2):
                         break
                     else:
                         map[j].append(i)
-                    if callee_kinds[j] == nodes.ARG_STAR:
+                    if callee_kinds[j] == nodes.Arg.STAR:
                         break
                     j += 1
-        elif kind == nodes.ARG_NAMED:
+        elif kind == nodes.Arg.NAMED:
             name = caller_names[i]
             if name in callee_names:
                 map[callee_names.index(name)].append(i)
-            elif nodes.ARG_STAR2 in callee_kinds:
-                map[callee_kinds.index(nodes.ARG_STAR2)].append(i)
+            elif nodes.Arg.STAR2 in callee_kinds:
+                map[callee_kinds.index(nodes.Arg.STAR2)].append(i)
         else:
-            assert kind == nodes.ARG_STAR2
+            assert kind == nodes.Arg.STAR2
             for j in range(ncallee):
                 # TODO tuple varargs complicate this
                 no_certain_match = (
-                    not map[j] or caller_kinds[map[j][0]] == nodes.ARG_STAR)
+                    not map[j] or caller_kinds[map[j][0]] == nodes.Arg.STAR)
                 if ((callee_names[j] and no_certain_match)
-                        or callee_kinds[j] == nodes.ARG_STAR2):
+                        or callee_kinds[j] == nodes.Arg.STAR2):
                     map[j].append(i)
     return map
 
@@ -1882,15 +1882,15 @@ def is_empty_tuple(t: Type) -> bool:
     return isinstance(t, TupleType) and not t.items
 
 
-def is_duplicate_mapping(mapping: List[int], actual_kinds: List[int]) -> bool:
+def is_duplicate_mapping(mapping: List[int], actual_kinds: List[Arg]) -> bool:
     # Multiple actuals can map to the same formal only if they both come from
     # varargs (*args and **kwargs); in this case at runtime it is possible that
     # there are no duplicates. We need to allow this, as the convention
     # f(..., *args, **kwargs) is common enough.
     return len(mapping) > 1 and not (
         len(mapping) == 2 and
-        actual_kinds[mapping[0]] == nodes.ARG_STAR and
-        actual_kinds[mapping[1]] == nodes.ARG_STAR2)
+        actual_kinds[mapping[0]] == nodes.Arg.STAR and
+        actual_kinds[mapping[1]] == nodes.Arg.STAR2)
 
 
 def replace_callable_return_type(c: CallableType, new_ret_type: Type) -> CallableType:

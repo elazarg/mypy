@@ -4,7 +4,7 @@ import typing
 
 from mypy.myunit import Suite, assert_equal, assert_true
 from mypy.checkexpr import map_actuals_to_formals
-from mypy.nodes import ARG_POS, ARG_OPT, ARG_STAR, ARG_STAR2, ARG_NAMED
+from mypy.nodes import Arg
 from mypy.types import AnyType, TupleType
 
 
@@ -15,74 +15,74 @@ class MapActualsToFormalsSuite(Suite):
         self.assert_map([], [], [])
 
     def test_positional_only(self):
-        self.assert_map([ARG_POS],
-                        [ARG_POS],
+        self.assert_map([Arg.POS],
+                        [Arg.POS],
                         [[0]])
-        self.assert_map([ARG_POS, ARG_POS],
-                        [ARG_POS, ARG_POS],
+        self.assert_map([Arg.POS, Arg.POS],
+                        [Arg.POS, Arg.POS],
                         [[0], [1]])
 
     def test_optional(self):
         self.assert_map([],
-                        [ARG_OPT],
+                        [Arg.OPT],
                         [[]])
-        self.assert_map([ARG_POS],
-                        [ARG_OPT],
+        self.assert_map([Arg.POS],
+                        [Arg.OPT],
                         [[0]])
-        self.assert_map([ARG_POS],
-                        [ARG_OPT, ARG_OPT],
+        self.assert_map([Arg.POS],
+                        [Arg.OPT, Arg.OPT],
                         [[0], []])
 
     def test_callee_star(self):
         self.assert_map([],
-                        [ARG_STAR],
+                        [Arg.STAR],
                         [[]])
-        self.assert_map([ARG_POS],
-                        [ARG_STAR],
+        self.assert_map([Arg.POS],
+                        [Arg.STAR],
                         [[0]])
-        self.assert_map([ARG_POS, ARG_POS],
-                        [ARG_STAR],
+        self.assert_map([Arg.POS, Arg.POS],
+                        [Arg.STAR],
                         [[0, 1]])
 
     def test_caller_star(self):
-        self.assert_map([ARG_STAR],
-                        [ARG_STAR],
+        self.assert_map([Arg.STAR],
+                        [Arg.STAR],
                         [[0]])
-        self.assert_map([ARG_POS, ARG_STAR],
-                        [ARG_STAR],
+        self.assert_map([Arg.POS, Arg.STAR],
+                        [Arg.STAR],
                         [[0, 1]])
-        self.assert_map([ARG_STAR],
-                        [ARG_POS, ARG_STAR],
+        self.assert_map([Arg.STAR],
+                        [Arg.POS, Arg.STAR],
                         [[0], [0]])
-        self.assert_map([ARG_STAR],
-                        [ARG_OPT, ARG_STAR],
+        self.assert_map([Arg.STAR],
+                        [Arg.OPT, Arg.STAR],
                         [[0], [0]])
 
     def test_too_many_caller_args(self):
-        self.assert_map([ARG_POS],
+        self.assert_map([Arg.POS],
                         [],
                         [])
-        self.assert_map([ARG_STAR],
+        self.assert_map([Arg.STAR],
                         [],
                         [])
-        self.assert_map([ARG_STAR],
-                        [ARG_POS],
+        self.assert_map([Arg.STAR],
+                        [Arg.POS],
                         [[0]])
 
     def test_tuple_star(self):
         self.assert_vararg_map(
-            [ARG_STAR],
-            [ARG_POS],
+            [Arg.STAR],
+            [Arg.POS],
             [[0]],
             self.tuple(AnyType()))
         self.assert_vararg_map(
-            [ARG_STAR],
-            [ARG_POS, ARG_POS],
+            [Arg.STAR],
+            [Arg.POS, Arg.POS],
             [[0], [0]],
             self.tuple(AnyType(), AnyType()))
         self.assert_vararg_map(
-            [ARG_STAR],
-            [ARG_POS, ARG_OPT, ARG_OPT],
+            [Arg.STAR],
+            [Arg.POS, Arg.OPT, Arg.OPT],
             [[0], [0], []],
             self.tuple(AnyType(), AnyType()))
 
@@ -92,77 +92,77 @@ class MapActualsToFormalsSuite(Suite):
     def test_named_args(self):
         self.assert_map(
             ['x'],
-            [(ARG_POS, 'x')],
+            [(Arg.POS, 'x')],
             [[0]])
         self.assert_map(
             ['y', 'x'],
-            [(ARG_POS, 'x'), (ARG_POS, 'y')],
+            [(Arg.POS, 'x'), (Arg.POS, 'y')],
             [[1], [0]])
 
     def test_some_named_args(self):
         self.assert_map(
             ['y'],
-            [(ARG_OPT, 'x'), (ARG_OPT, 'y'), (ARG_OPT, 'z')],
+            [(Arg.OPT, 'x'), (Arg.OPT, 'y'), (Arg.OPT, 'z')],
             [[], [0], []])
 
     def test_missing_named_arg(self):
         self.assert_map(
             ['y'],
-            [(ARG_OPT, 'x')],
+            [(Arg.OPT, 'x')],
             [[]])
 
     def test_duplicate_named_arg(self):
         self.assert_map(
             ['x', 'x'],
-            [(ARG_OPT, 'x')],
+            [(Arg.OPT, 'x')],
             [[0, 1]])
 
     def test_varargs_and_bare_asterisk(self):
         self.assert_map(
-            [ARG_STAR],
-            [ARG_STAR, (ARG_NAMED, 'x')],
+            [Arg.STAR],
+            [Arg.STAR, (Arg.NAMED, 'x')],
             [[0], []])
         self.assert_map(
-            [ARG_STAR, 'x'],
-            [ARG_STAR, (ARG_NAMED, 'x')],
+            [Arg.STAR, 'x'],
+            [Arg.STAR, (Arg.NAMED, 'x')],
             [[0], [1]])
 
     def test_keyword_varargs(self):
         self.assert_map(
             ['x'],
-            [ARG_STAR2],
+            [Arg.STAR2],
             [[0]])
         self.assert_map(
-            ['x', ARG_STAR2],
-            [ARG_STAR2],
+            ['x', Arg.STAR2],
+            [Arg.STAR2],
             [[0, 1]])
         self.assert_map(
-            ['x', ARG_STAR2],
-            [(ARG_POS, 'x'), ARG_STAR2],
+            ['x', Arg.STAR2],
+            [(Arg.POS, 'x'), Arg.STAR2],
             [[0], [1]])
         self.assert_map(
-            [ARG_POS, ARG_STAR2],
-            [(ARG_POS, 'x'), ARG_STAR2],
+            [Arg.POS, Arg.STAR2],
+            [(Arg.POS, 'x'), Arg.STAR2],
             [[0], [1]])
 
     def test_both_kinds_of_varargs(self):
         self.assert_map(
-            [ARG_STAR, ARG_STAR2],
-            [(ARG_POS, 'x'), (ARG_POS, 'y')],
+            [Arg.STAR, Arg.STAR2],
+            [(Arg.POS, 'x'), (Arg.POS, 'y')],
             [[0, 1], [0, 1]])
 
     def test_special_cases(self):
-        self.assert_map([ARG_STAR],
-                        [ARG_STAR, ARG_STAR2],
+        self.assert_map([Arg.STAR],
+                        [Arg.STAR, Arg.STAR2],
                         [[0], []])
-        self.assert_map([ARG_STAR, ARG_STAR2],
-                        [ARG_STAR, ARG_STAR2],
+        self.assert_map([Arg.STAR, Arg.STAR2],
+                        [Arg.STAR, Arg.STAR2],
                         [[0], [1]])
-        self.assert_map([ARG_STAR2],
-                        [(ARG_POS, 'x'), ARG_STAR2],
+        self.assert_map([Arg.STAR2],
+                        [(Arg.POS, 'x'), Arg.STAR2],
                         [[0], [0]])
-        self.assert_map([ARG_STAR2],
-                        [ARG_STAR2],
+        self.assert_map([Arg.STAR2],
+                        [Arg.STAR2],
                         [[0]])
 
     def assert_map(self, caller_kinds, callee_kinds, expected):
@@ -192,7 +192,7 @@ def expand_caller_kinds(kinds_or_names):
     names = []
     for k in kinds_or_names:
         if isinstance(k, str):
-            kinds.append(ARG_NAMED)
+            kinds.append(Arg.NAMED)
             names.append(k)
         else:
             kinds.append(k)

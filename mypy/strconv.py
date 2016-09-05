@@ -41,14 +41,14 @@ class StrConv(NodeVisitor[str]):
         extra = []
         for i, arg in enumerate(o.arguments):
             kind = arg.kind
-            if kind == mypy.nodes.ARG_POS:
+            if kind == mypy.nodes.Arg.POS:
                 args.append(o.arguments[i].variable)
-            elif kind in (mypy.nodes.ARG_OPT, mypy.nodes.ARG_NAMED):
+            elif kind in (mypy.nodes.Arg.OPT, mypy.nodes.Arg.NAMED):
                 args.append(o.arguments[i].variable)
                 init.append(o.arguments[i].initialization_statement)
-            elif kind == mypy.nodes.ARG_STAR:
+            elif kind == mypy.nodes.Arg.STAR:
                 extra.append(('VarArg', [o.arguments[i].variable]))
-            elif kind == mypy.nodes.ARG_STAR2:
+            elif kind == mypy.nodes.Arg.STAR2:
                 extra.append(('DictVarArg', [o.arguments[i].variable]))
         a = []  # type: List[Any]
         if args:
@@ -108,7 +108,7 @@ class StrConv(NodeVisitor[str]):
     def visit_func_def(self, o):
         a = self.func_helper(o)
         a.insert(0, o.name())
-        if mypy.nodes.ARG_NAMED in [arg.kind for arg in o.arguments]:
+        if mypy.nodes.Arg.NAMED in [arg.kind for arg in o.arguments]:
             a.insert(1, 'MaxPos({})'.format(o.max_pos))
         if o.is_abstract:
             a.insert(-1, 'Abstract')
@@ -330,14 +330,14 @@ class StrConv(NodeVisitor[str]):
         n = name
         if is_def:
             n += '*'
-        if kind == mypy.nodes.GDEF or (fullname != name and
+        if kind == mypy.nodes.DefKind.GDEF or (fullname != name and
                                        fullname is not None):
             # Append fully qualified name for global references.
             n += ' [{}]'.format(fullname)
-        elif kind == mypy.nodes.LDEF:
+        elif kind == mypy.nodes.DefKind.LDEF:
             # Add tag to signify a local reference.
             n += ' [l]'
-        elif kind == mypy.nodes.MDEF:
+        elif kind == mypy.nodes.DefKind.MDEF:
             # Add tag to signify a member reference.
             n += ' [m]'
         return n
@@ -358,13 +358,13 @@ class StrConv(NodeVisitor[str]):
         args = []
         extra = []
         for i, kind in enumerate(o.arg_kinds):
-            if kind in [mypy.nodes.ARG_POS, mypy.nodes.ARG_STAR]:
+            if kind in [mypy.nodes.Arg.POS, mypy.nodes.Arg.STAR]:
                 args.append(o.args[i])
-                if kind == mypy.nodes.ARG_STAR:
+                if kind == mypy.nodes.Arg.STAR:
                     extra.append('VarArg')
-            elif kind == mypy.nodes.ARG_NAMED:
+            elif kind == mypy.nodes.Arg.NAMED:
                 extra.append(('KwArgs', [o.arg_names[i], o.args[i]]))
-            elif kind == mypy.nodes.ARG_STAR2:
+            elif kind == mypy.nodes.Arg.STAR2:
                 extra.append(('DictVarArg', [o.args[i]]))
             else:
                 raise RuntimeError('unknown kind %d' % kind)

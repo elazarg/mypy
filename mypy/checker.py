@@ -1,20 +1,17 @@
 """Mypy type checker."""
 
 import itertools
-import contextlib
 import fnmatch
-import os
-import os.path
 
 from typing import (
-    Any, Dict, Set, List, cast, Tuple, TypeVar, Union, Optional, NamedTuple
+    Dict, List, cast, Tuple, TypeVar, Optional, NamedTuple
 )
 
 from mypy.errors import Errors, report_internal_error
 from mypy.nodes import (
-    SymbolTable, Node, MypyFile, Var, Expression,
+    Node, MypyFile, Var, Expression, SymbolTable,
     OverloadedFuncDef, FuncDef, FuncItem, FuncBase, TypeInfo,
-    ClassDef, GDEF, Block, AssignmentStmt, NameExpr, MemberExpr, IndexExpr,
+    ClassDef, Block, AssignmentStmt, NameExpr, MemberExpr, IndexExpr,
     TupleExpr, ListExpr, ExpressionStmt, ReturnStmt, IfStmt,
     WhileStmt, OperatorAssignmentStmt, WithStmt, AssertStmt,
     RaiseStmt, TryStmt, ForStmt, DelStmt, CallExpr, IntExpr, StrExpr,
@@ -41,7 +38,6 @@ from mypy.sametypes import is_same_type
 from mypy.messages import MessageBuilder
 import mypy.checkexpr
 from mypy.checkmember import map_type_from_supertype
-from mypy import defaults
 from mypy import messages
 from mypy.subtypes import (
     is_subtype, is_equivalent, is_proper_subtype,
@@ -50,7 +46,7 @@ from mypy.subtypes import (
 from mypy.maptype import map_instance_to_supertype
 from mypy.semanal import self_type, set_callable_name, refers_to_fullname
 from mypy.erasetype import erase_typevars
-from mypy.expandtype import expand_type_by_instance, expand_type
+from mypy.expandtype import expand_type
 from mypy.visitor import NodeVisitor
 from mypy.join import join_types
 from mypy.treetransform import TransformVisitor
@@ -591,11 +587,11 @@ class TypeChecker(NodeVisitor[Type]):
                             self.fail(messages.FUNCTION_PARAMETER_CANNOT_BE_COVARIANT,
                                       arg_type)
 
-                    if typ.arg_kinds[i] == nodes.ARG_STAR:
+                    if typ.arg_kinds[i] == nodes.Arg.STAR:
                         # builtins.tuple[T] is typing.Tuple[T, ...]
                         arg_type = self.named_generic_type('builtins.tuple',
                                                            [arg_type])
-                    elif typ.arg_kinds[i] == nodes.ARG_STAR2:
+                    elif typ.arg_kinds[i] == nodes.Arg.STAR2:
                         arg_type = self.named_generic_type('builtins.dict',
                                                            [self.str_type(),
                                                             arg_type])
@@ -710,7 +706,7 @@ class TypeChecker(NodeVisitor[Type]):
             # the arguments of the reverse method.
             forward_tweaked = CallableType(
                 [forward_base, forward_type.arg_types[0]],
-                [nodes.ARG_POS] * 2,
+                [nodes.Arg.POS] * 2,
                 [None] * 2,
                 forward_type.ret_type,
                 forward_type.fallback,
@@ -718,7 +714,7 @@ class TypeChecker(NodeVisitor[Type]):
             reverse_args = reverse_type.arg_types
             reverse_tweaked = CallableType(
                 [reverse_args[1], reverse_args[0]],
-                [nodes.ARG_POS] * 2,
+                [nodes.Arg.POS] * 2,
                 [None] * 2,
                 reverse_type.ret_type,
                 fallback=self.named_type('builtins.function'),
@@ -764,7 +760,7 @@ class TypeChecker(NodeVisitor[Type]):
 
     def check_getattr_method(self, typ: CallableType, context: Context) -> None:
         method_type = CallableType([AnyType(), self.named_type('builtins.str')],
-                                   [nodes.ARG_POS, nodes.ARG_POS],
+                                   [nodes.Arg.POS, nodes.Arg.POS],
                                    [None],
                                    AnyType(),
                                    self.named_type('builtins.function'))
@@ -1425,7 +1421,7 @@ class TypeChecker(NodeVisitor[Type]):
             '__setitem__', basetype, context)
         lvalue.method_type = method_type
         self.expr_checker.check_call(method_type, [lvalue.index, rvalue],
-                                     [nodes.ARG_POS, nodes.ARG_POS],
+                                     [nodes.Arg.POS, nodes.Arg.POS],
                                      context)
 
     def try_infer_partial_type_from_indexed_assignment(
@@ -1801,7 +1797,7 @@ class TypeChecker(NodeVisitor[Type]):
             e = s.expr
             m = MemberExpr(e.base, '__delitem__')
             m.line = s.line
-            c = CallExpr(m, [e.index], [nodes.ARG_POS], [None])
+            c = CallExpr(m, [e.index], [nodes.Arg.POS], [None])
             c.line = s.line
             return c.accept(self)
         else:
@@ -1841,7 +1837,7 @@ class TypeChecker(NodeVisitor[Type]):
             dec = self.accept(d)
             temp = self.temp_node(sig)
             sig, t2 = self.expr_checker.check_call(dec, [temp],
-                                                   [nodes.ARG_POS], e)
+                                                   [nodes.Arg.POS], e)
         sig = cast(FunctionLike, sig)
         sig = set_callable_name(sig, e.func)
         e.var.type = sig
@@ -1880,7 +1876,7 @@ class TypeChecker(NodeVisitor[Type]):
             self.check_assignment(target, self.temp_node(obj, expr))
         exit = echk.analyze_external_member_access('__aexit__', ctx, expr)
         arg = self.temp_node(AnyType(), expr)
-        res = echk.check_call(exit, [arg] * 3, [nodes.ARG_POS] * 3, expr)[0]
+        res = echk.check_call(exit, [arg] * 3, [nodes.Arg.POS] * 3, expr)[0]
         self.check_awaitable_expr(
             res, expr, messages.INCOMPATIBLE_TYPES_IN_ASYNC_WITH_AEXIT)
 
@@ -1893,7 +1889,7 @@ class TypeChecker(NodeVisitor[Type]):
             self.check_assignment(target, self.temp_node(obj, expr))
         exit = echk.analyze_external_member_access('__exit__', ctx, expr)
         arg = self.temp_node(AnyType(), expr)
-        echk.check_call(exit, [arg] * 3, [nodes.ARG_POS] * 3, expr)
+        echk.check_call(exit, [arg] * 3, [nodes.Arg.POS] * 3, expr)
 
     def visit_print_stmt(self, s: PrintStmt) -> Type:
         for arg in s.args:
@@ -2267,7 +2263,7 @@ class TypeChecker(NodeVisitor[Type]):
 
     def lookup_qualified(self, name: str) -> SymbolTableNode:
         if '.' not in name:
-            return self.lookup(name, GDEF)  # FIX kind
+            return self.lookup(name, nodes.DefKind.GDEF)  # FIX kind
         else:
             parts = name.split('.')
             n = self.modules[parts[0]]
