@@ -7,7 +7,7 @@ from typing import (
 )
 
 import mypy.nodes
-from mypy.nodes import INVARIANT, SymbolNode
+from mypy.nodes import Variance, SymbolNode
 
 from mypy import experiments
 
@@ -108,11 +108,12 @@ class TypeVarDef(mypy.nodes.Context):
     id = None  # type: TypeVarId
     values = None  # type: List[Type]  # Value restriction, empty list if no restriction
     upper_bound = None  # type: Type
-    variance = INVARIANT  # type: int
+    variance = Variance.INVARIANT  # type: Variance
     line = 0
 
-    def __init__(self, name: str, id: Union[TypeVarId, int], values: Optional[List[Type]],
-                 upper_bound: Type, variance: int = INVARIANT, line: int = -1) -> None:
+    def __init__(self, name: str, id: Union[TypeVarId, int],
+                 values: Optional[List[Type]], upper_bound: Type,
+                 variance: Variance = Variance.INVARIANT, line: int = -1) -> None:
         self.name = name
         if isinstance(id, int):
             id = TypeVarId(id)
@@ -446,7 +447,7 @@ class TypeVarType(Type):
     values = None  # type: List[Type]  # Value restriction, empty list if no restriction
     upper_bound = None  # type: Type   # Upper bound for values
     # See comments in TypeVarDef for more about variance.
-    variance = INVARIANT  # type: int
+    variance = Variance.INVARIANT  # type: int
 
     def __init__(self, binder: TypeVarDef, line: int = -1) -> None:
         self.name = binder.name

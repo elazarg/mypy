@@ -1,14 +1,14 @@
 from mypy.myunit import Suite, assert_true
-from mypy.nodes import CONTRAVARIANT, INVARIANT, COVARIANT
+from mypy.nodes import Variance
 from mypy.subtypes import is_subtype
 from mypy.typefixture import TypeFixture, InterfaceTypeFixture
 
 
 class SubtypingSuite(Suite):
     def set_up(self):
-        self.fx = TypeFixture(INVARIANT)
-        self.fx_contra = TypeFixture(CONTRAVARIANT)
-        self.fx_co = TypeFixture(COVARIANT)
+        self.fx = TypeFixture(Variance.INVARIANT)
+        self.fx_contra = TypeFixture(Variance.CONTRAVARIANT)
+        self.fx_co = TypeFixture(Variance.COVARIANT)
 
     def test_trivial_cases(self):
         for simple in self.fx_co.void, self.fx_co.a, self.fx_co.o, self.fx_co.b:

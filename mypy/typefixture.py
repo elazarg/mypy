@@ -10,7 +10,7 @@ from mypy.types import (
     Instance, CallableType, TypeVarDef, TypeType,
 )
 from mypy.nodes import (
-    TypeInfo, ClassDef, Block, Arg, SymbolTable, COVARIANT)
+    TypeInfo, ClassDef, Block, Arg, SymbolTable, Variance)
 
 
 class TypeFixture:
@@ -19,7 +19,7 @@ class TypeFixture:
     The members are initialized to contain various type-related values.
     """
 
-    def __init__(self, variance: int=COVARIANT) -> None:
+    def __init__(self, variance: Variance = Variance.COVARIANT) -> None:
         # The 'object' class
         self.oi = self.make_type_info('builtins.object')               # class object
         self.o = Instance(self.oi, [])                        # object
@@ -27,7 +27,7 @@ class TypeFixture:
         # Type variables (these are effectively global)
 
         def make_type_var(name: str, id: int, values: List[Type], upper_bound: Type,
-                          variance: int) -> TypeVarType:
+                          variance: Variance) -> TypeVarType:
             return TypeVarType(TypeVarDef(name, id, values, upper_bound, variance))
 
         self.t = make_type_var('T', 1, [], self.o, variance)     # T`1 (type variable)
@@ -197,7 +197,7 @@ class TypeFixture:
                        mro: List[TypeInfo] = None,
                        bases: List[Instance] = None,
                        typevars: List[str] = None,
-                       variances: List[int] = None) -> TypeInfo:
+                       variances: List[Variance] = None) -> TypeInfo:
         """Make a TypeInfo suitable for use in unit tests."""
 
         class_def = ClassDef(name, Block([]), None, [])
@@ -215,7 +215,7 @@ class TypeFixture:
                 if variances:
                     variance = variances[id - 1]
                 else:
-                    variance = COVARIANT
+                    variance = Variance.COVARIANT
                 v.append(TypeVarDef(n, id, None, self.o, variance=variance))
             class_def.type_vars = v
 

@@ -1,4 +1,4 @@
-from typing import cast, List, Dict, Callable
+from typing import List, Callable
 
 from mypy.types import (
     Type, AnyType, UnboundType, TypeVisitor, ErrorType, Void, NoneTyp,
@@ -10,7 +10,7 @@ import mypy.constraints
 # Circular import; done in the function instead.
 # import mypy.solve
 from mypy import messages, sametypes
-from mypy.nodes import CONTRAVARIANT, COVARIANT
+from mypy.nodes import Variance
 from mypy.maptype import map_instance_to_supertype
 
 from mypy import experiments
@@ -20,9 +20,9 @@ TypeParameterChecker = Callable[[Type, Type, int], bool]
 
 
 def check_type_parameter(lefta: Type, righta: Type, variance: int) -> bool:
-    if variance == COVARIANT:
+    if variance == Variance.COVARIANT:
         return is_subtype(lefta, righta, check_type_parameter)
-    elif variance == CONTRAVARIANT:
+    elif variance == Variance.CONTRAVARIANT:
         return is_subtype(righta, lefta, check_type_parameter)
     else:
         return is_equivalent(lefta, righta, check_type_parameter)
@@ -366,9 +366,9 @@ def is_proper_subtype(t: Type, s: Type) -> bool:
                 return False
 
             def check_argument(left: Type, right: Type, variance: int) -> bool:
-                if variance == COVARIANT:
+                if variance == Variance.COVARIANT:
                     return is_proper_subtype(left, right)
-                elif variance == CONTRAVARIANT:
+                elif variance == Variance.CONTRAVARIANT:
                     return is_proper_subtype(right, left)
                 else:
                     return sametypes.is_same_type(left, right)

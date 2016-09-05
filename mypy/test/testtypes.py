@@ -14,7 +14,7 @@ from mypy.types import (
     Instance, NoneTyp, ErrorType, Overloaded, TypeType, UnionType, UninhabitedType,
     true_only, false_only
 )
-from mypy.nodes import Arg, CONTRAVARIANT, INVARIANT, COVARIANT
+from mypy.nodes import Arg, Variance
 from mypy.subtypes import is_subtype, is_more_precise, is_proper_subtype
 from mypy.typefixture import TypeFixture, InterfaceTypeFixture
 
@@ -96,9 +96,9 @@ class TypesSuite(Suite):
 
 class TypeOpsSuite(Suite):
     def set_up(self):
-        self.fx = TypeFixture(INVARIANT)
-        self.fx_co = TypeFixture(COVARIANT)
-        self.fx_contra = TypeFixture(CONTRAVARIANT)
+        self.fx = TypeFixture(Variance.INVARIANT)
+        self.fx_co = TypeFixture(Variance.COVARIANT)
+        self.fx_contra = TypeFixture(Variance.CONTRAVARIANT)
 
     # expand_type
 

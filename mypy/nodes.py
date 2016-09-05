@@ -54,9 +54,10 @@ class DefKind(IntEnum):
     UNBOUND_IMPORTED = 7  # type: int
 
 
-LITERAL_YES = 2
-LITERAL_TYPE = 1
-LITERAL_NO = 0
+class Literal(IntEnum):
+    NO = 0
+    TYPE = 1
+    YES = 2
 
 # Hard coded name of Enum baseclass.
 ENUM_BASECLASS = "enum.Enum"
@@ -95,7 +96,7 @@ class Node(Context):
 
     line = -1
 
-    literal = LITERAL_NO
+    literal = Literal.NO
     literal_hash = None  # type: Any
 
     def __str__(self) -> str:
@@ -999,7 +1000,7 @@ class IntExpr(Expression):
     """Integer literal"""
 
     value = 0
-    literal = LITERAL_YES
+    literal = Literal.YES
 
     def __init__(self, value: int) -> None:
         self.value = value
@@ -1024,7 +1025,7 @@ class StrExpr(Expression):
     """String literal"""
 
     value = ''
-    literal = LITERAL_YES
+    literal = Literal.YES
 
     def __init__(self, value: str) -> None:
         self.value = value
@@ -1038,7 +1039,7 @@ class BytesExpr(Expression):
     """Bytes literal"""
 
     value = ''  # TODO use bytes
-    literal = LITERAL_YES
+    literal = Literal.YES
 
     def __init__(self, value: str) -> None:
         self.value = value
@@ -1052,7 +1053,7 @@ class UnicodeExpr(Expression):
     """Unicode literal (Python 2.x)"""
 
     value = ''  # TODO use bytes
-    literal = LITERAL_YES
+    literal = Literal.YES
 
     def __init__(self, value: str) -> None:
         self.value = value
@@ -1066,7 +1067,7 @@ class FloatExpr(Expression):
     """Float literal"""
 
     value = 0.0
-    literal = LITERAL_YES
+    literal = Literal.YES
 
     def __init__(self, value: float) -> None:
         self.value = value
@@ -1080,7 +1081,7 @@ class ComplexExpr(Expression):
     """Complex literal"""
 
     value = 0.0j
-    literal = LITERAL_YES
+    literal = Literal.YES
 
     def __init__(self, value: complex) -> None:
         self.value = value
@@ -1136,7 +1137,7 @@ class NameExpr(RefExpr):
 
     name = None  # type: str      # Name referred to (may be qualified)
 
-    literal = LITERAL_TYPE
+    literal = Literal.TYPE
 
     def __init__(self, name: str) -> None:
         self.name = name
@@ -1256,7 +1257,7 @@ class IndexExpr(Expression):
         self.base = base
         self.index = index
         self.analyzed = None
-        if self.index.literal == LITERAL_YES:
+        if self.index.literal == Literal.YES:
             self.literal = self.base.literal
             self.literal_hash = ('Member', base.literal_hash,
                                  index.literal_hash)
@@ -1466,8 +1467,8 @@ class ListExpr(Expression):
 
     def __init__(self, items: List[Expression]) -> None:
         self.items = items
-        if all(x.literal == LITERAL_YES for x in items):
-            self.literal = LITERAL_YES
+        if all(x.literal == Literal.YES for x in items):
+            self.literal = Literal.YES
             self.literal_hash = ('List',) + tuple(x.literal_hash for x in items)
 
     def accept(self, visitor: NodeVisitor[T]) -> T:
@@ -1483,9 +1484,9 @@ class DictExpr(Expression):
         self.items = items
         # key is None for **item, e.g. {'a': 1, **x} has
         # keys ['a', None] and values [1, x].
-        if all(x[0] and x[0].literal == LITERAL_YES and x[1].literal == LITERAL_YES
+        if all(x[0] and x[0].literal == Literal.YES and x[1].literal == Literal.YES
                for x in items):
-            self.literal = LITERAL_YES
+            self.literal = Literal.YES
             self.literal_hash = ('Dict',) + tuple(
                 (x[0].literal_hash, x[1].literal_hash) for x in items)  # type: ignore
 
@@ -1500,8 +1501,8 @@ class TupleExpr(Expression):
 
     def __init__(self, items: List[Expression]) -> None:
         self.items = items
-        if all(x.literal == LITERAL_YES for x in items):
-            self.literal = LITERAL_YES
+        if all(x.literal == Literal.YES for x in items):
+            self.literal = Literal.YES
             self.literal_hash = ('Tuple',) + tuple(x.literal_hash for x in items)
 
     def accept(self, visitor: NodeVisitor[T]) -> T:
@@ -1515,8 +1516,8 @@ class SetExpr(Expression):
 
     def __init__(self, items: List[Expression]) -> None:
         self.items = items
-        if all(x.literal == LITERAL_YES for x in items):
-            self.literal = LITERAL_YES
+        if all(x.literal == Literal.YES for x in items):
+            self.literal = Literal.YES
             self.literal_hash = ('Set',) + tuple(x.literal_hash for x in items)
 
     def accept(self, visitor: NodeVisitor[T]) -> T:
@@ -1638,9 +1639,10 @@ class TypeApplication(Expression):
 #
 # If T is contravariant in Foo[T], Foo[object] is a subtype of
 # Foo[int], but not vice versa.
-INVARIANT = 0  # type: int
-COVARIANT = 1  # type: int
-CONTRAVARIANT = 2  # type: int
+class Variance(IntEnum):
+    INVARIANT = 0  # type: int
+    COVARIANT = 1  # type: int
+    CONTRAVARIANT = 2  # type: int
 
 
 class TypeVarExpr(SymbolNode, Expression):
@@ -1658,12 +1660,12 @@ class TypeVarExpr(SymbolNode, Expression):
     # TypeVar(..., covariant=True) defines a covariant type variable.
     # TypeVar(..., contravariant=True) defines a contravariant type
     # variable.
-    variance = INVARIANT
+    variance = Variance.INVARIANT
 
     def __init__(self, name: str, fullname: str,
                  values: List['mypy.types.Type'],
                  upper_bound: 'mypy.types.Type',
-                 variance: int=INVARIANT) -> None:
+                 variance: Variance=Variance.INVARIANT) -> None:
         self._name = name
         self._fullname = fullname
         self.values = values

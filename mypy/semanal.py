@@ -66,7 +66,7 @@ from mypy.nodes import (
     SetComprehension, DictionaryComprehension, TypeAliasExpr,
     YieldExpr, ExecStmt, Argument, BackquoteExpr, ImportBase, AwaitExpr,
     IntExpr, FloatExpr, UnicodeExpr, EllipsisExpr, namedtuple_type_info,
-    COVARIANT, CONTRAVARIANT, INVARIANT, LITERAL_YES,
+    Variance, Literal,
 )
 from mypy.visitor import NodeVisitor
 from mypy.traverser import TraverserVisitor
@@ -1511,7 +1511,7 @@ class SemanticAnalyzer(NodeVisitor):
                                    names: List[Optional[str]],
                                    kinds: List[Arg],
                                    has_values: bool,
-                                   context: Context) -> Optional[Tuple[int, Type]]:
+                                   context: Context) -> Optional[Tuple[Variance, Type]]:
         covariant = False
         contravariant = False
         upper_bound = self.object_type()   # type: Type
@@ -1562,11 +1562,11 @@ class SemanticAnalyzer(NodeVisitor):
             self.fail("TypeVar cannot be both covariant and contravariant", context)
             return None
         elif covariant:
-            variance = COVARIANT
+            variance = Variance.COVARIANT
         elif contravariant:
-            variance = CONTRAVARIANT
+            variance = Variance.CONTRAVARIANT
         else:
-            variance = INVARIANT
+            variance = Variance.INVARIANT
         return (variance, upper_bound)
 
     def process_namedtuple_definition(self, s: AssignmentStmt) -> None:
@@ -3125,7 +3125,7 @@ def contains_int_or_tuple_of_ints(expr: Node) -> Union[None, int, Tuple[int], Tu
     if isinstance(expr, IntExpr):
         return expr.value
     if isinstance(expr, TupleExpr):
-        if expr.literal == LITERAL_YES:
+        if expr.literal == Literal.YES:
             thing = []
             for x in expr.items:
                 if not isinstance(x, IntExpr):

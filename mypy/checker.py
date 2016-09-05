@@ -19,12 +19,11 @@ from mypy.nodes import (
     TypeApplication, DictExpr, SliceExpr, FuncExpr, TempNode, SymbolTableNode,
     Context, ListComprehension, ConditionalExpr, GeneratorExpr,
     Decorator, SetExpr, TypeVarExpr, NewTypeExpr, PrintStmt,
-    LITERAL_TYPE, BreakStmt, ContinueStmt, ComparisonExpr, StarExpr,
+    Literal, BreakStmt, ContinueStmt, ComparisonExpr, StarExpr,
     YieldFromExpr, NamedTupleExpr, SetComprehension,
     DictionaryComprehension, ComplexExpr, EllipsisExpr, TypeAliasExpr,
     RefExpr, YieldExpr, BackquoteExpr, ImportFrom, ImportAll, ImportBase,
-    AwaitExpr,
-    CONTRAVARIANT, COVARIANT
+    AwaitExpr, Variance
 )
 from mypy.nodes import function_type, method_type, method_type_with_fallback
 from mypy import nodes
@@ -544,7 +543,7 @@ class TypeChecker(NodeVisitor[Type]):
 
                 # Refuse contravariant return type variable
                 if isinstance(typ.ret_type, TypeVarType):
-                    if typ.ret_type.variance == CONTRAVARIANT:
+                    if typ.ret_type.variance == Variance.CONTRAVARIANT:
                         self.fail(messages.RETURN_TYPE_CANNOT_BE_CONTRAVARIANT,
                              typ.ret_type)
 
@@ -583,7 +582,7 @@ class TypeChecker(NodeVisitor[Type]):
 
                     # Refuse covariant parameter type variables
                     if isinstance(arg_type, TypeVarType):
-                        if arg_type.variance == COVARIANT:
+                        if arg_type.variance == Variance.COVARIANT:
                             self.fail(messages.FUNCTION_PARAMETER_CANNOT_BE_COVARIANT,
                                       arg_type)
 
@@ -1380,7 +1379,7 @@ class TypeChecker(NodeVisitor[Type]):
             self.set_inferred_type(var, lvalue, AnyType())
 
     def narrow_type_from_binder(self, expr: Node, known_type: Type) -> Type:
-        if expr.literal >= LITERAL_TYPE:
+        if expr.literal >= Literal.TYPE:
             restriction = self.binder.get(expr)
             if restriction:
                 ans = meet_simple(known_type, restriction)
@@ -2467,7 +2466,7 @@ def find_isinstance_check(node: Node,
     if isinstance(node, CallExpr):
         if refers_to_fullname(node.callee, 'builtins.isinstance'):
             expr = node.args[0]
-            if expr.literal == LITERAL_TYPE:
+            if expr.literal == Literal.TYPE:
                 vartype = type_map[expr]
                 type = get_isinstance_type(node.args[1], type_map)
                 return conditional_type_map(expr, vartype, type, weak=weak)
@@ -2479,7 +2478,7 @@ def find_isinstance_check(node: Node,
             if_vars = {}  # type: Dict[Node, Type]
             else_vars = {}  # type: Dict[Node, Type]
             for expr in node.operands:
-                if expr.literal == LITERAL_TYPE and not is_literal_none(expr) and expr in type_map:
+                if expr.literal == Literal.TYPE and not is_literal_none(expr) and expr in type_map:
                     # This should only be true at most once: there should be
                     # two elements in node.operands, and at least one of them
                     # should represent a None.
