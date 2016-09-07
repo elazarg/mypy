@@ -50,7 +50,7 @@ import mypy.build
 import mypy.parse
 import mypy.errors
 import mypy.traverser
-from mypy import defaults
+from mypy.defaults import Version
 from mypy.nodes import (
     Node, IntExpr, UnaryExpr, StrExpr, BytesExpr, NameExpr, FloatExpr, MemberExpr, TupleExpr,
     ListExpr, ComparisonExpr, CallExpr, ClassDef, MypyFile, Decorator, AssignmentStmt,
@@ -61,7 +61,7 @@ from mypy.stubutil import is_c_module, write_header
 from mypy.options import Options as MypyOptions
 
 
-Options = NamedTuple('Options', [('pyversion', Tuple[int, int]),
+Options = NamedTuple('Options', [('pyversion', Version),
                                  ('no_import', bool),
                                  ('doc_dir', str),
                                  ('search_path', List[str]),
@@ -72,7 +72,7 @@ Options = NamedTuple('Options', [('pyversion', Tuple[int, int]),
 def generate_stub_for_module(module: str, output_dir: str, quiet: bool = False,
                              add_header: bool = False, sigs: Dict[str, str] = {},
                              class_sigs: Dict[str, str] = {},
-                             pyversion: Tuple[int, int] = defaults.PYTHON3_VERSION,
+                             pyversion: Version = Version.PYTHON3,
                              no_import: bool = False,
                              search_path: List[str] = [],
                              interpreter: str = sys.executable) -> None:
@@ -104,7 +104,7 @@ def generate_stub_for_module(module: str, output_dir: str, quiet: bool = False,
         print('Created %s' % target)
 
 
-def find_module_path_and_all(module: str, pyversion: Tuple[int, int],
+def find_module_path_and_all(module: str, pyversion: Version,
                              no_import: bool,
                              search_path: List[str],
                              interpreter: str) -> Optional[Tuple[str,
@@ -164,7 +164,7 @@ def load_python_module_info(module: str, interpreter: str) -> Tuple[str, Optiona
 
 def generate_stub(path: str, output_dir: str, _all_: Optional[List[str]] = None,
                   target: str = None, add_header: bool = False, module: str = None,
-                  pyversion: Tuple[int, int] = defaults.PYTHON3_VERSION) -> None:
+                  pyversion: Version = Version.PYTHON3) -> None:
     source = open(path, 'rb').read()
     options = MypyOptions()
     options.python_version = pyversion
@@ -200,7 +200,7 @@ NOT_IN_ALL = 'NOT_IN_ALL'
 
 
 class StubGenerator(mypy.traverser.TraverserVisitor):
-    def __init__(self, _all_: Optional[List[str]], pyversion: Tuple[int, int]) -> None:
+    def __init__(self, _all_: Optional[List[str]], pyversion: Version) -> None:
         self._all_ = _all_
         self._output = []  # type: List[str]
         self._import_lines = []  # type: List[str]
@@ -587,7 +587,7 @@ def main() -> None:
 
 def parse_options() -> Options:
     args = sys.argv[1:]
-    pyversion = defaults.PYTHON3_VERSION
+    pyversion = Version.PYTHON3
     no_import = False
     doc_dir = ''
     search_path = []  # type: List[str]
@@ -605,7 +605,7 @@ def parse_options() -> Options:
             interpreter = args[1]
             args = args[1:]
         elif args[0] == '--py2':
-            pyversion = defaults.PYTHON2_VERSION
+            pyversion = Version.PYTHON2
         elif args[0] == '--no-import':
             no_import = True
         elif args[0] in ('-h', '--help'):

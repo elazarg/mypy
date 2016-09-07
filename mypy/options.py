@@ -1,10 +1,10 @@
-from mypy import defaults
+from mypy.defaults import MYPY_CACHE, Version
 import pprint
 import sys
 from typing import Any, Optional, Tuple, List
+from enum import Enum
 
-
-class BuildType:
+class BuildType(Enum):
     STANDARD = 0
     MODULE = 1
     PROGRAM_TEXT = 2
@@ -16,7 +16,7 @@ class Options:
     def __init__(self) -> None:
         # -- build options --
         self.build_type = BuildType.STANDARD
-        self.python_version = defaults.PYTHON3_VERSION
+        self.python_version = Version.PYTHON3
         self.platform = sys.platform
         self.custom_typing_module = None  # type: str
         self.report_dirs = {}  # type: Dict[str, str]
@@ -61,7 +61,7 @@ class Options:
         # -- experimental options --
         self.fast_parser = False
         self.incremental = False
-        self.cache_dir = defaults.MYPY_CACHE
+        self.cache_dir = MYPY_CACHE
         self.debug_cache = False
         self.suppress_error_context = False  # Suppress "note: In function "foo":" messages.
         self.shadow_file = None  # type: Optional[Tuple[str, str]]

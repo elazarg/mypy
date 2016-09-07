@@ -35,9 +35,9 @@ def test_parser(testcase):
     options = Options()
 
     if testcase.file.endswith('python2.test'):
-        options.python_version = defaults.PYTHON2_VERSION
+        options.python_version = defaults.Version.PYTHON2
     else:
-        options.python_version = defaults.PYTHON3_VERSION
+        options.python_version = defaults.Version.PYTHON3
 
     try:
         n = parse(bytes('\n'.join(testcase.input), 'ascii'),

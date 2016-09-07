@@ -263,14 +263,14 @@ def num_skipped_suffix_lines(a1: List[str], a2: List[str]) -> int:
 
 def testfile_pyversion(path: str) -> Tuple[int, int]:
     if path.endswith('python2.test'):
-        return defaults.PYTHON2_VERSION
+        return defaults.Version.PYTHON2
     else:
-        return defaults.PYTHON3_VERSION
+        return defaults.Version.PYTHON3
 
 
 def testcase_pyversion(path: str, testcase_name: str) -> Tuple[int, int]:
     if testcase_name.endswith('python2'):
-        return defaults.PYTHON2_VERSION
+        return defaults.Version.PYTHON2
     else:
         return testfile_pyversion(path)
 

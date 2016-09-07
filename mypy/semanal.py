@@ -81,7 +81,7 @@ from mypy.exprtotype import expr_to_unanalyzed_type, TypeTranslationError
 from mypy.sametypes import is_same_type
 from mypy.erasetype import erase_typevars
 from mypy.options import Options
-
+from mypy.defaults import Version
 
 T = TypeVar('T')
 
@@ -2966,7 +2966,7 @@ def remove_imported_names_from_symtable(names: SymbolTable,
 
 
 def infer_reachability_of_if_statement(s: IfStmt,
-                                       pyversion: Tuple[int, int],
+                                       pyversion: Version,
                                        platform: str) -> None:
     for i in range(len(s.expr)):
         result = infer_if_condition_value(s.expr[i], pyversion, platform)
@@ -2983,7 +2983,7 @@ def infer_reachability_of_if_statement(s: IfStmt,
             break
 
 
-def infer_if_condition_value(expr: Node, pyversion: Tuple[int, int], platform: str) -> int:
+def infer_if_condition_value(expr: Node, pyversion: Version, platform: str) -> int:
     """Infer whether if condition is always true/false.
 
     Return ALWAYS_TRUE if always true, ALWAYS_FALSE if always false,

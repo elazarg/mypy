@@ -28,7 +28,7 @@ from mypy.nodes import (
     SetComprehension, ComplexExpr, EllipsisExpr, YieldExpr, ExecStmt, Argument,
     BackquoteExpr
 )
-from mypy import defaults
+from mypy.defaults import Version
 from mypy import nodes
 from mypy.errors import Errors, CompileError
 from mypy.types import Type, CallableType, AnyType, UnboundType
@@ -125,7 +125,7 @@ class Parser:
     # Lines to ignore (using # type: ignore).
     ignored_lines = None  # type: Set[int]
 
-    def __init__(self, fnam: str, errors: Errors, pyversion: Tuple[int, int],
+    def __init__(self, fnam: str, errors: Errors, pyversion: Version,
                  custom_typing_module: str = None, is_stub_file: bool = False) -> None:
         self.raise_on_error = errors is None
         self.pyversion = pyversion
@@ -1999,11 +1999,11 @@ if __name__ == '__main__':
         sys.exit(2)
 
     args = sys.argv[1:]
-    pyversion = defaults.PYTHON3_VERSION
+    pyversion = Version.PYTHON3
     quiet = False
     while args and args[0].startswith('--'):
         if args[0] == '--py2':
-            pyversion = defaults.PYTHON2_VERSION
+            pyversion = Version.PYTHON2
         elif args[0] == '--quiet':
             quiet = True
         else:

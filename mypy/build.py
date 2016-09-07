@@ -32,7 +32,7 @@ from mypy.indirection import TypeIndirectionVisitor
 from mypy.errors import Errors, CompileError, DecodeError, report_internal_error
 from mypy import fixup
 from mypy.report import Reports
-from mypy import defaults
+from mypy.defaults import Version
 from mypy import moduleinfo
 from mypy import util
 from mypy.fixup import fixup_module_pass_one, fixup_module_pass_two
@@ -252,7 +252,7 @@ def mypy_path() -> List[str]:
     return path_env.split(os.pathsep)
 
 
-def default_lib_path(data_dir: str, pyversion: Tuple[int, int]) -> List[str]:
+def default_lib_path(data_dir: str, pyversion: Version) -> List[str]:
     """Return default standard library search paths."""
     # IDEA: Make this more portable.
     path = []  # type: List[str]
@@ -654,7 +654,7 @@ def verify_module(id: str, path: str) -> bool:
     return True
 
 
-def read_with_python_encoding(path: str, pyversion: Tuple[int, int]) -> str:
+def read_with_python_encoding(path: str, pyversion: Version) -> str:
     """Read the Python file with while obeying PEP-263 encoding detection"""
     source_bytearray = bytearray()
     encoding = 'utf8' if pyversion[0] >= 3 else 'ascii'
@@ -684,7 +684,7 @@ def read_with_python_encoding(path: str, pyversion: Tuple[int, int]) -> str:
 
 
 def get_cache_names(id: str, path: str, cache_dir: str,
-                    pyversion: Tuple[int, int]) -> Tuple[str, str]:
+                    pyversion: Version) -> Tuple[str, str]:
     """Return the file names for the cache files.
 
     Args:

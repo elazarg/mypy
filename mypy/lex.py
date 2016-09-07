@@ -9,7 +9,7 @@ This module can be run as a script (lex.py FILE).
 import re
 
 from mypy.util import short_type, find_python_encoding
-from mypy import defaults
+from mypy.defaults import Version
 from typing import List, Callable, Dict, Any, Match, Pattern, Set, Union, Tuple
 
 
@@ -159,7 +159,7 @@ INVALID_DEDENT = 5
 
 
 def lex(string: Union[str, bytes], first_line: int = 1,
-        pyversion: Tuple[int, int] = defaults.PYTHON3_VERSION,
+        pyversion: Version = Version.PYTHON3,
         is_stub_file: bool = False) -> Tuple[List[Token], Set[int]]:
     """Analyze string, and return an array of token objects and the lines to ignore.
 
@@ -293,12 +293,12 @@ class Lexer:
     # newlines within parentheses/brackets.
     open_brackets = None  # type: List[str]
 
-    pyversion = defaults.PYTHON3_VERSION
+    pyversion = Version.PYTHON3  # type: Version
 
     # Ignore errors on these lines (defined using '# type: ignore').
     ignored_lines = None  # type: Set[int]
 
-    def __init__(self, pyversion: Tuple[int, int] = defaults.PYTHON3_VERSION,
+    def __init__(self, pyversion: Version = Version.PYTHON3,
                  is_stub_file: bool = False) -> None:
         self.map = {}
         self.tok = []

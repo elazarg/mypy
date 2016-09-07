@@ -19,7 +19,7 @@ from mypy.nodes import (
 from mypy.types import (
     Type, CallableType, AnyType, UnboundType, TupleType, TypeList, EllipsisType,
 )
-from mypy import defaults
+from mypy.defaults import Version
 from mypy import experiments
 from mypy.errors import Errors
 
@@ -47,7 +47,7 @@ TYPE_COMMENT_AST_ERROR = 'invalid type comment'
 
 
 def parse(source: Union[str, bytes], fnam: str = None, errors: Errors = None,
-          pyversion: Tuple[int, int] = defaults.PYTHON3_VERSION,
+          pyversion: Version = Version.PYTHON3,
           custom_typing_module: str = None) -> MypyFile:
     """Parse a source file, without doing any semantic analysis.
 

@@ -141,7 +141,7 @@ def process_options(args: List[str],
                         help="typecheck special-cased code for the given OS platform "
                         "(defaults to sys.platform).")
     parser.add_argument('-2', '--py2', dest='python_version', action='store_const',
-                        const=defaults.PYTHON2_VERSION, help="use Python 2 mode")
+                        const=defaults.Version.PYTHON2, help="use Python 2 mode")
     parser.add_argument('-s', '--silent-imports', action='store_true',
                         help="don't follow imports to .py files")
     parser.add_argument('--almost-silent', action='store_true',
