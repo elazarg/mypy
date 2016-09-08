@@ -725,7 +725,7 @@ class TypeChecker(NodeVisitor[Type]):
                     reverse_class.name(), reverse_name,
                     forward_base.type.name(), forward_name, context)
         elif isinstance(forward_type, Overloaded):
-            for item in forward_type.items():
+            for item in forward_type.items:
                 self.check_overlapping_op_methods(
                     reverse_type, reverse_name, reverse_class,
                     item, forward_name, forward_base, context)
@@ -1712,7 +1712,7 @@ class TypeChecker(NodeVisitor[Type]):
                 self.fail(messages.INVALID_EXCEPTION_TYPE, n)
                 return AnyType()
 
-            item = ttype.items()[0]
+            item = ttype.items[0]
             ret_type = item.ret_type
             if not (is_subtype(ret_type, self.named_type('builtins.BaseException'))
                     and item.is_type_obj()):
@@ -2556,7 +2556,7 @@ def get_isinstance_type(node: Node, type_map: Dict[Node, Type]) -> Type:
             if type.is_type_obj():
                 # Type variables may be present -- erase them, which is the best
                 # we can do (outside disallowing them here).
-                type = erase_typevars(type.items()[0].ret_type)
+                type = erase_typevars(type.items[0].ret_type)
 
             types.append(type)
 
@@ -2642,9 +2642,9 @@ def is_more_general_arg_prefix(t: FunctionLike, s: FunctionLike) -> bool:
                        for argt, args in zip(t.arg_types, s.arg_types))
     elif isinstance(t, FunctionLike):
         if isinstance(s, FunctionLike):
-            if len(t.items()) == len(s.items()):
+            if len(t.items) == len(s.items):
                 return all(is_same_arg_prefix(items, itemt)
-                           for items, itemt in zip(t.items(), s.items()))
+                           for items, itemt in zip(t.items, s.items))
     return False
 
 

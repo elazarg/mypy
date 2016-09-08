@@ -83,7 +83,7 @@ class ExpandTypeVisitor(TypeVisitor[Type]):
 
     def visit_overloaded(self, t: Overloaded) -> Type:
         items = []  # type: List[CallableType]
-        for item in t.items():
+        for item in t.items:
             items.append(cast(CallableType, item.accept(self)))
         return Overloaded(items)
 

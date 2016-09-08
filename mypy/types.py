@@ -501,6 +501,7 @@ class FunctionLike(Type):
     @abstractmethod
     def type_object(self) -> mypy.nodes.TypeInfo: pass
 
+    @property
     @abstractmethod
     def items(self) -> List['CallableType']: pass
 
@@ -633,6 +634,7 @@ class CallableType(FunctionLike):
             n -= 1
         return n
 
+    @property
     def items(self) -> List['CallableType']:
         return [self]
 
@@ -690,32 +692,29 @@ class Overloaded(FunctionLike):
     implementation.
     """
 
-    _items = None  # type: List[CallableType]  # Must not be empty
+    items = None  # type: List[CallableType]  # Must not be empty
 
     def __init__(self, items: List[CallableType]) -> None:
-        self._items = items
+        self.items = items
         self.fallback = items[0].fallback
         super().__init__(items[0].line)
 
-    def items(self) -> List[CallableType]:
-        return self._items
-
     def name(self) -> str:
-        return self._items[0].name
+        return self.items[0].name
 
     def is_type_obj(self) -> bool:
         # All the items must have the same type object status, so it's
         # sufficient to query only (any) one of them.
-        return self._items[0].is_type_obj()
+        return self.items[0].is_type_obj()
 
     def type_object(self) -> mypy.nodes.TypeInfo:
         # All the items must have the same type object, so it's sufficient to
         # query only (any) one of them.
-        return self._items[0].type_object()
+        return self.items[0].type_object()
 
     def with_name(self, name: str) -> 'Overloaded':
         ni = []  # type: List[CallableType]
-        for it in self._items:
+        for it in self.items:
             ni.append(it.with_name(name))
         return Overloaded(ni)
 
@@ -724,7 +723,7 @@ class Overloaded(FunctionLike):
 
     def serialize(self) -> JsonDict:
         return {'.class': 'Overloaded',
-                'items': [t.serialize() for t in self.items()],
+                'items': [t.serialize() for t in self.items],
                 }
 
     @classmethod
@@ -1149,7 +1148,7 @@ class TypeTranslator(TypeVisitor[Type]):
 
     def visit_overloaded(self, t: Overloaded) -> Type:
         items = []  # type: List[CallableType]
-        for item in t.items():
+        for item in t.items:
             new = item.accept(self)
             if isinstance(new, CallableType):
                 items.append(new)
@@ -1254,7 +1253,7 @@ class TypeStrVisitor(TypeVisitor[str]):
 
     def visit_overloaded(self, t: Overloaded) -> str:
         a = []
-        for i in t.items():
+        for i in t.items:
             a.append(i.accept(self))
         return 'Overload({})'.format(', '.join(a))
 
@@ -1377,7 +1376,7 @@ class TypeQuery(TypeVisitor[bool]):
         return self.query_types(t.items)
 
     def visit_overloaded(self, t: Overloaded) -> bool:
-        return self.query_types(t.items())
+        return self.query_types(t.items)
 
     def visit_type_type(self, t: TypeType) -> bool:
         return t.item.accept(self)
@@ -1415,7 +1414,7 @@ def strip_type(typ: Type) -> Type:
         return typ.copy_modified(name=None)
     elif isinstance(typ, Overloaded):
         return Overloaded([cast(CallableType, strip_type(item))
-                           for item in typ.items()])
+                           for item in typ.items])
     else:
         return typ
 

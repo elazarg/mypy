@@ -2833,7 +2833,7 @@ class ThirdPass(TraverserVisitor):
                 # The outermost decorator always returns the same kind of function,
                 # so we know that this is the type of the decoratored function.
                 orig_sig = function_type(dec.func, self.builtin_type('function'))
-                sig.name = orig_sig.items()[0].name
+                sig.name = orig_sig.items[0].name
                 dec.var.type = sig
 
     def visit_assignment_stmt(self, s: AssignmentStmt) -> None:
@@ -2891,7 +2891,7 @@ def replace_implicit_first_type(sig: FunctionLike, new: Type) -> FunctionLike:
     else:
         sig = cast(Overloaded, sig)
         return Overloaded([cast(CallableType, replace_implicit_first_type(i, new))
-                           for i in sig.items()])
+                           for i in sig.items])
 
 
 def set_callable_name(sig: Type, fdef: FuncDef) -> Type:

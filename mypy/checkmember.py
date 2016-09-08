@@ -104,7 +104,7 @@ def analyze_member_access(name: str,
     elif isinstance(typ, FunctionLike) and typ.is_type_obj():
         # Class attribute.
         # TODO super?
-        ret_type = typ.items()[0].ret_type
+        ret_type = typ.items[0].ret_type
         if isinstance(ret_type, TupleType):
             ret_type = ret_type.fallback
         if isinstance(ret_type, Instance):
@@ -287,7 +287,7 @@ def lookup_member_var_or_accessor(info: TypeInfo, name: str,
 
 def check_method_type(functype: FunctionLike, itype: Instance, is_classmethod: bool,
                       context: Context, msg: MessageBuilder) -> None:
-    for item in functype.items():
+    for item in functype.items:
         if not item.arg_types or item.arg_kinds[0] not in (Arg.POS, Arg.STAR):
             # No positional first (self) argument (*args is okay).
             msg.invalid_method_type(item, context)
@@ -380,7 +380,7 @@ def add_class_tvars(t: Type, info: TypeInfo, is_classmethod: bool,
     elif isinstance(t, Overloaded):
         return Overloaded([cast(CallableType, add_class_tvars(i, info, is_classmethod,
                                                               builtin_type))
-                           for i in t.items()])
+                           for i in t.items])
     return t
 
 
@@ -448,7 +448,7 @@ def type_object_type_from_function(init_or_new: FuncBase, info: TypeInfo,
     else:
         # Overloaded __init__/__new__.
         items = []  # type: List[CallableType]
-        for item in cast(Overloaded, signature).items():
+        for item in cast(Overloaded, signature).items:
             items.append(class_callable(item, info, fallback, special_sig))
         return Overloaded(items)
 

@@ -213,8 +213,8 @@ class TypeJoinVisitor(TypeVisitor[Type]):
         s = self.s
         if isinstance(s, FunctionLike):
             # The interesting case where both types are function types.
-            for t_item in t.items():
-                for s_item in s.items():
+            for t_item in t.items:
+                for s_item in s.items:
                     if is_similar_callables(t_item, s_item):
                         result.append(combine_similar_callables(t_item, s_item))
             if result:

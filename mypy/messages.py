@@ -171,7 +171,7 @@ class MessageBuilder:
             if func.is_type_obj():
                 # The type of a type object type can be derived from the
                 # return type (this always works).
-                itype = cast(Instance, func.items()[0].ret_type)
+                itype = cast(Instance, func.items[0].ret_type)
                 result = self.format(itype)
                 if verbosity >= 1:
                     # In some contexts we want to be explicit about the distinction

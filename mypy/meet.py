@@ -167,8 +167,8 @@ class TypeMeetVisitor(TypeVisitor[Type]):
 
     def visit_none_type(self, t: NoneTyp) -> Type:
         if experiments.STRICT_OPTIONAL:
-            if isinstance(self.s, NoneTyp) or (isinstance(self.s, Instance) and
-                                               self.s.type.fullname() == 'builtins.object'):
+            if (isinstance(self.s, Instance) and self.s.type.fullname() == 'builtins.object' 
+                    or isinstance(self.s, NoneTyp)):
                 return t
             else:
                 return UninhabitedType()

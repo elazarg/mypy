@@ -1,4 +1,4 @@
-from typing import Optional, Container, Callable
+from typing import Container, Callable, Optional
 
 from mypy.types import (
     Type, TypeVisitor, UnboundType, ErrorType, AnyType, Void, NoneTyp, TypeVarId,
@@ -73,7 +73,7 @@ class EraseTypeVisitor(TypeVisitor[Type]):
         return CallableType([], [], [], ret_type, t.fallback)
 
     def visit_overloaded(self, t: Overloaded) -> Type:
-        return t.items()[0].accept(self)
+        return t.items[0].accept(self)
 
     def visit_tuple_type(self, t: TupleType) -> Type:
         return t.fallback.accept(self)
@@ -89,16 +89,17 @@ def erase_typevars(t: Type, ids_to_erase: Optional[Container[TypeVarId]] = None)
     """Replace all type variables in a type with any,
     or just the ones in the provided collection.
     """
-    def erase_id(id: TypeVarId) -> bool:
-        if ids_to_erase is None:
+    if ids_to_erase is None:
+        def erase_id(id: TypeVarId) -> bool:
             return True
-        return id in ids_to_erase
+    else:
+        erase_id = ids_to_erase.__contains__
     return t.accept(TypeVarEraser(erase_id, AnyType()))
 
 
 def replace_meta_vars(t: Type, target_type: Type) -> Type:
     """Replace unification variables in a type with the target type."""
-    return t.accept(TypeVarEraser(lambda id: id.is_meta_var(), target_type))
+    return t.accept(TypeVarEraser(TypeVarId.is_meta_var, target_type))
 
 
 class TypeVarEraser(TypeTranslator):

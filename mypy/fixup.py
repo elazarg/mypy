@@ -173,7 +173,7 @@ class TypeFixer(TypeVisitor[None]):
         pass  # Nothing to descend into.
 
     def visit_overloaded(self, t: Overloaded) -> None:
-        for ct in t.items():
+        for ct in t.items:
             ct.accept(self)
 
     def visit_deleted_type(self, o: Any) -> None:

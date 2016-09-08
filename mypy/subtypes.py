@@ -153,7 +153,7 @@ class SubtypeVisitor(TypeVisitor[bool]):
             return is_callable_subtype(left, right)
         elif isinstance(right, Overloaded):
             return all(is_subtype(left, item, self.check_type_parameter)
-                       for item in right.items())
+                       for item in right.items)
         elif isinstance(right, Instance):
             return is_subtype(left.fallback, right)
         elif isinstance(right, TypeType):
@@ -165,20 +165,17 @@ class SubtypeVisitor(TypeVisitor[bool]):
     def visit_tuple_type(self, left: TupleType) -> bool:
         right = self.right
         if isinstance(right, Instance):
-            if is_named_instance(right, 'builtins.object'):
+            if is_named_instance(right, 'typing.Sized'):
                 return True
-            if is_named_instance(right, 'builtins.tuple'):
-                target_item_type = right.args[0]
-                return all(is_subtype(item, target_item_type)
-                           for item in left.items)
-            elif is_named_instance(right, 'typing.Sized'):
-                return True
-            elif (is_named_instance(right, 'typing.Iterable') or
+            elif (is_named_instance(right, 'builtins.tuple') or
+                  is_named_instance(right, 'typing.Iterable') or
                   is_named_instance(right, 'typing.Container') or
                   is_named_instance(right, 'typing.Sequence') or
                   is_named_instance(right, 'typing.Reversible')):
                 iter_type = right.args[0]
                 return all(is_subtype(li, iter_type) for li in left.items)
+            if is_subtype(left.fallback, right, self.check_type_parameter):
+                return True
             return False
         elif isinstance(right, TupleType):
             if len(left.items) != len(right.items):
@@ -198,16 +195,16 @@ class SubtypeVisitor(TypeVisitor[bool]):
             return is_subtype(left.fallback, right)
         elif isinstance(right, CallableType) or is_named_instance(
                 right, 'builtins.type'):
-            for item in left.items():
+            for item in left.items:
                 if is_subtype(item, right, self.check_type_parameter):
                     return True
             return False
         elif isinstance(right, Overloaded):
             # TODO: this may be too restrictive
-            if len(left.items()) != len(right.items()):
+            if len(left.items) != len(right.items):
                 return False
-            for i in range(len(left.items())):
-                if not is_subtype(left.items()[i], right.items()[i], self.check_type_parameter):
+            for i in range(len(left.items)):
+                if not is_subtype(left.items[i], right.items[i], self.check_type_parameter):
                     return False
             return True
         elif isinstance(right, UnboundType):
@@ -216,7 +213,7 @@ class SubtypeVisitor(TypeVisitor[bool]):
             # All the items must have the same type object status, so
             # it's sufficient to query only (any) one of them.
             # This is unsound, we don't check the __init__ signature.
-            return left.is_type_obj() and is_subtype(left.items()[0].ret_type, right.item)
+            return left.is_type_obj() and is_subtype(left.items[0].ret_type, right.item)
         else:
             return False
 

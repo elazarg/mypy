@@ -358,11 +358,11 @@ class ExpressionChecker:
                 else:
                     callee = callee.copy_modified(ret_type=item)
             elif isinstance(callee, Overloaded):
-                if callee.items()[0].is_generic():
+                if callee.items[0].is_generic():
                     callee = None
                 else:
                     callee = Overloaded([c.copy_modified(ret_type=item)
-                                         for c in callee.items()])
+                                         for c in callee.items])
             if callee:
                 return callee
 
@@ -759,7 +759,7 @@ class ExpressionChecker:
         #       result than 'Any'.
         match = []  # type: List[CallableType]
         best_match = 0
-        for typ in overload.items():
+        for typ in overload.items:
             similarity = self.erased_signature_similarity(arg_types, arg_kinds, arg_names,
                                                           typ, context=context)
             if similarity > 0 and similarity >= best_match:
@@ -881,7 +881,7 @@ class ExpressionChecker:
     def apply_generic_arguments2(self, overload: Overloaded, types: List[Type],
                                  context: Context) -> Type:
         items = []  # type: List[CallableType]
-        for item in overload.items():
+        for item in overload.items:
             applied = self.apply_generic_arguments(item, types, context)
             if isinstance(applied, CallableType):
                 items.append(applied)
@@ -1987,7 +1987,7 @@ def overload_arg_similarity(actual: Type, formal: Type) -> int:
         if isinstance(actual, CallableType):
             actual = actual.fallback
         if isinstance(actual, Overloaded):
-            actual = actual.items()[0].fallback
+            actual = actual.items[0].fallback
         if isinstance(actual, TupleType):
             actual = actual.fallback
         if isinstance(actual, Instance):

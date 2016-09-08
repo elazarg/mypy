@@ -2266,7 +2266,7 @@ def method_type(sig: 'mypy.types.FunctionLike') -> 'mypy.types.FunctionLike':
     else:
         sig = cast(mypy.types.Overloaded, sig)
         items = []  # type: List[mypy.types.CallableType]
-        for c in sig.items():
+        for c in sig.items:
             items.append(method_callable(c))
         return mypy.types.Overloaded(items)
 
