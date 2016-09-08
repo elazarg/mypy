@@ -73,7 +73,7 @@ from mypy.traverser import TraverserVisitor
 from mypy.errors import Errors, report_internal_error
 from mypy.types import (
     NoneTyp, CallableType, Overloaded, Instance, Type, TypeVarType, AnyType,
-    FunctionLike, UnboundType, TypeList, TypeVarDef,
+    FunctionLike, UnboundType, TypeList, TypeVarDef, ANY_TYPE,
     replace_leading_arg_type, TupleType, UnionType, StarType, EllipsisType)
 from mypy.nodes import function_type, implicit_module_attrs
 from mypy.typeanal import TypeAnalyser, TypeAnalyserPass3, analyze_type_alias
@@ -543,7 +543,7 @@ class SemanticAnalyzer(NodeVisitor):
         if len(sig.arg_types) < len(fdef.arguments):
             self.fail('Type signature has too few arguments', fdef)
             # Add dummy Any arguments to prevent crashes later.
-            extra_anys = [AnyType()] * (len(fdef.arguments) - len(sig.arg_types))
+            extra_anys = [ANY_TYPE] * (len(fdef.arguments) - len(sig.arg_types))
             sig.arg_types.extend(extra_anys)
         elif len(sig.arg_types) > len(fdef.arguments):
             self.fail('Type signature has too many arguments', fdef, blocker=True)
@@ -856,7 +856,7 @@ class SemanticAnalyzer(NodeVisitor):
         leading_type = checkmember.type_object_type(info, self.builtin_type)
         if isinstance(leading_type, Overloaded):
             # Overloaded __init__ is too complex to handle.  Plus it's stubs only.
-            return AnyType()
+            return ANY_TYPE
         else:
             return leading_type
 
@@ -1047,7 +1047,7 @@ class SemanticAnalyzer(NodeVisitor):
         else:
             var._fullname = self.qualified_name(name)
         var.is_ready = True
-        var.type = AnyType()
+        var.type = ANY_TYPE
         var.is_suppressed_import = is_import
         self.add_symbol(name, SymbolTableNode(DefKind.GDEF, var, self.cur_mod_id), context)
 
@@ -1077,7 +1077,7 @@ class SemanticAnalyzer(NodeVisitor):
                     star_count = sum(1 for item in t.items if isinstance(item, StarType))
                     if star_count > 1:
                         self.fail('At most one star type allowed in a tuple', t)
-                        return TupleType([AnyType() for _ in t.items],
+                        return TupleType([ANY_TYPE for _ in t.items],
                                          self.builtin_type('builtins.tuple'), t.line)
                     items = [self.anal_type(item, True)
                              for item in t.items]
@@ -1656,7 +1656,7 @@ class SemanticAnalyzer(NodeVisitor):
                 # The fields argument contains (name, type) tuples.
                 items, types, ok = self.parse_namedtuple_fields_with_types(listexpr.items, call)
         if not types:
-            types = [AnyType() for _ in items]
+            types = [ANY_TYPE for _ in items]
         return items, types, ok
 
     def parse_namedtuple_fields_with_types(self, nodes: List[Node],
@@ -1690,16 +1690,16 @@ class SemanticAnalyzer(NodeVisitor):
     def build_namedtuple_typeinfo(self, name: str, items: List[str],
                                   types: List[Type]) -> TypeInfo:
         strtype = self.named_type('__builtins__.str')  # type: Type
-        basetuple_type = self.named_type('__builtins__.tuple', [AnyType()])
-        dictype = (self.named_type_or_none('builtins.dict', [strtype, AnyType()])
+        basetuple_type = self.named_type('__builtins__.tuple', [ANY_TYPE])
+        dictype = (self.named_type_or_none('builtins.dict', [strtype, ANY_TYPE])
                    or self.object_type())
         # Actual signature should return OrderedDict[str, Union[types]]
-        ordereddictype = (self.named_type_or_none('builtins.dict', [strtype, AnyType()])
+        ordereddictype = (self.named_type_or_none('builtins.dict', [strtype, ANY_TYPE])
                           or self.object_type())
         fallback = self.named_type('__builtins__.tuple', types)
         # Note: actual signature should accept an invariant version of Iterable[UnionType[types]].
         # but it can't be expressed. 'new' and 'len' should be callable types.
-        iterable_type = self.named_type_or_none('typing.Iterable', [AnyType()])
+        iterable_type = self.named_type_or_none('typing.Iterable', [ANY_TYPE])
         function_type = self.named_type('__builtins__.function')
         fullname = self.qualified_name(name)
 
@@ -1751,8 +1751,8 @@ class SemanticAnalyzer(NodeVisitor):
         # FIX: make it actual class method
         add_method('_make', ret=this_type, is_classmethod=True,
                    args=[Argument(Var('iterable', iterable_type), iterable_type, None, Arg.POS),
-                         Argument(Var('new'), AnyType(), EllipsisExpr(), Arg.NAMED),
-                         Argument(Var('len'), AnyType(), EllipsisExpr(), Arg.NAMED)])
+                         Argument(Var('new'), ANY_TYPE, EllipsisExpr(), Arg.NAMED),
+                         Argument(Var('len'), ANY_TYPE, EllipsisExpr(), Arg.NAMED)])
         return info
 
     def make_argument(self, name: str, type: Type) -> Argument:
@@ -1765,7 +1765,7 @@ class SemanticAnalyzer(NodeVisitor):
                 result.append(self.anal_type(expr_to_unanalyzed_type(node)))
             except TypeTranslationError:
                 self.fail('Type expected', node)
-                result.append(AnyType())
+                result.append(ANY_TYPE)
         return result
 
     def visit_decorator(self, dec: Decorator) -> None:
@@ -1804,7 +1804,7 @@ class SemanticAnalyzer(NodeVisitor):
                 if len(dec.func.arguments) > 1:
                     self.fail('Too many arguments', dec.func)
             elif refers_to_fullname(d, 'typing.no_type_check'):
-                dec.var.type = AnyType()
+                dec.var.type = ANY_TYPE
                 no_type_check = True
         for i in reversed(removed):
             del dec.decorators[i]
@@ -2058,7 +2058,7 @@ class SemanticAnalyzer(NodeVisitor):
             # Special form Any(...).
             if not self.check_fixed_args(expr, 1, 'Any'):
                 return
-            expr.analyzed = CastExpr(expr.args[0], AnyType())
+            expr.analyzed = CastExpr(expr.args[0], ANY_TYPE)
             expr.analyzed.line = expr.line
             expr.analyzed.accept(self)
         elif refers_to_fullname(expr.callee, 'typing._promote'):
@@ -2600,7 +2600,7 @@ class FirstPass(NodeVisitor):
             literal_types = [
                 ('None', NoneTyp()),
                 # reveal_type is a mypy-only function that gives an error with the type of its arg
-                ('reveal_type', AnyType()),
+                ('reveal_type', ANY_TYPE),
             ]  # type: List[Tuple[str, Type]]
 
             # TODO(ddfisher): This guard is only needed because mypy defines
@@ -2801,10 +2801,10 @@ class ThirdPass(TraverserVisitor):
             # Decorators are expected to have a callable type (it's a little odd).
             if dec.func.type is None:
                 dec.var.type = CallableType(
-                    [AnyType()],
+                    [ANY_TYPE],
                     [Arg.POS],
                     [None],
-                    AnyType(),
+                    ANY_TYPE,
                     self.builtin_type('function'),
                     name=dec.var.name())
             elif isinstance(dec.func.type, CallableType):
@@ -2827,7 +2827,7 @@ class ThirdPass(TraverserVisitor):
             if returns_any_if_called(dec.decorators[0]):
                 # The outermost decorator will return Any so we know the type of the
                 # decorated function.
-                dec.var.type = AnyType()
+                dec.var.type = ANY_TYPE
             sig = find_fixed_callable_return(dec.decorators[0])
             if sig:
                 # The outermost decorator always returns the same kind of function,

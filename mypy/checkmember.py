@@ -4,7 +4,7 @@ from typing import cast, Callable, Optional
 
 from mypy.types import (
     Type, Instance, AnyType, TupleType, CallableType, FunctionLike, TypeVarDef,
-    Overloaded, TypeVarType, UnionType, PartialType,
+    Overloaded, TypeVarType, UnionType, PartialType, ANY_TYPE,
     DeletedType, NoneTyp, TypeType
 )
 from mypy.nodes import TypeInfo, FuncBase, Var, FuncDef, SymbolNode, Context, MypyFile
@@ -47,7 +47,7 @@ def analyze_member_access(name: str,
             # Accessing __init__ in statically typed code would compromise
             # type safety unless used via super().
             msg.fail(messages.CANNOT_ACCESS_INIT, node)
-            return AnyType()
+            return ANY_TYPE
 
         # The base object has an instance type.
 
@@ -80,10 +80,10 @@ def analyze_member_access(name: str,
                                              report_type=report_type, chk=chk)
     elif isinstance(typ, AnyType):
         # The base object has dynamic type.
-        return AnyType()
+        return ANY_TYPE
     elif isinstance(typ, NoneTyp):
         if chk and chk.should_suppress_optional_error([typ]):
-            return AnyType()
+            return ANY_TYPE
         # The only attribute NoneType has are those it inherits from object
         return analyze_member_access(name, builtin_type('builtins.object'), node, is_lvalue,
                                      is_super, is_operator, builtin_type, not_ready_callback, msg,
@@ -143,7 +143,7 @@ def analyze_member_access(name: str,
                                      report_type=report_type, chk=chk)
     elif isinstance(typ, DeletedType):
         msg.deleted_as_rvalue(typ, node)
-        return AnyType()
+        return ANY_TYPE
     elif isinstance(typ, TypeType):
         # Similar to FunctionLike + is_type_obj() above.
         item = None
@@ -164,7 +164,7 @@ def analyze_member_access(name: str,
                                      report_type=report_type, chk=chk)
 
     if chk and chk.should_suppress_optional_error([typ]):
-        return AnyType()
+        return ANY_TYPE
     return msg.has_no_attr(report_type, name, node)
 
 
@@ -202,15 +202,15 @@ def analyze_member_var_access(name: str, itype: Instance, info: TypeInfo,
                     return getattr_type.ret_type
 
     if itype.type.fallback_to_any:
-        return AnyType()
+        return ANY_TYPE
 
     # Could not find the member.
     if is_super:
         msg.undefined_in_superclass(name, node)
-        return AnyType()
+        return ANY_TYPE
     else:
         if chk and chk.should_suppress_optional_error([itype]):
-            return AnyType()
+            return ANY_TYPE
         return msg.has_no_attr(report_type or itype, name, node)
 
 
@@ -257,7 +257,7 @@ def analyze_var(name: str, var: Var, itype: Instance, info: TypeInfo, node: Cont
         if not var.is_ready:
             not_ready_callback(var.name(), node)
         # Implicit 'Any' type.
-        return AnyType()
+        return ANY_TYPE
 
 
 def handle_partial_attribute_type(typ: PartialType, is_lvalue: bool, msg: MessageBuilder,
@@ -271,7 +271,7 @@ def handle_partial_attribute_type(typ: PartialType, is_lvalue: bool, msg: Messag
         return typ
     else:
         msg.fail(messages.NEED_ANNOTATION_FOR_VAR, context)
-        return AnyType()
+        return ANY_TYPE
 
 
 def lookup_member_var_or_accessor(info: TypeInfo, name: str,
@@ -310,7 +310,7 @@ def check_method_type(functype: FunctionLike, itype: Instance, is_classmethod: b
                 if not subtypes.is_equivalent(clsarg.ret_type, itype):
                     msg.invalid_class_method_type(item, context)
             else:
-                if not subtypes.is_equivalent(clsarg, AnyType()):
+                if not subtypes.is_equivalent(clsarg, ANY_TYPE):
                     msg.invalid_class_method_type(item, context)
 
 
@@ -324,7 +324,7 @@ def analyze_class_attribute_access(itype: Instance,
     node = itype.type.get(name)
     if not node:
         if itype.type.fallback_to_any:
-            return AnyType()
+            return ANY_TYPE
         return None
 
     is_decorated = isinstance(node.node, Decorator)
@@ -346,7 +346,7 @@ def analyze_class_attribute_access(itype: Instance,
         return add_class_tvars(t, itype.type, is_classmethod, builtin_type)
     elif isinstance(node.node, Var):
         not_ready_callback(name, context)
-        return AnyType()
+        return ANY_TYPE
 
     if isinstance(node.node, TypeInfo):
         return type_object_type(node.node, builtin_type)
@@ -357,7 +357,7 @@ def analyze_class_attribute_access(itype: Instance,
 
     if is_decorated:
         # TODO: Return type of decorated function. This is quick hack to work around #998.
-        return AnyType()
+        return ANY_TYPE
     else:
         return function_type(cast(FuncBase, node.node), builtin_type('builtins.function'))
 
@@ -397,7 +397,7 @@ def type_object_type(info: TypeInfo, builtin_type: Callable[[str], Instance]) ->
     init_method = info.get_method('__init__')
     if not init_method:
         # Must be an invalid class definition.
-        return AnyType()
+        return ANY_TYPE
     else:
         fallback = builtin_type('builtins.type')
         if init_method.info.fullname() == 'builtins.object':
@@ -410,10 +410,10 @@ def type_object_type(info: TypeInfo, builtin_type: Callable[[str], Instance]) ->
             # base class, we can't know for sure, so check for that.
             if info.fallback_to_any:
                 # Construct a universal callable as the prototype.
-                sig = CallableType(arg_types=[AnyType(), AnyType()],
+                sig = CallableType(arg_types=[ANY_TYPE, ANY_TYPE],
                                    arg_kinds=[Arg.STAR, Arg.STAR2],
                                    arg_names=["_args", "_kwds"],
-                                   ret_type=AnyType(),
+                                   ret_type=ANY_TYPE,
                                    fallback=builtin_type('builtins.function'))
                 return class_callable(sig, info, fallback, None)
         # Construct callable type based on signature of __init__. Adjust

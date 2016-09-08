@@ -11,7 +11,7 @@ from typing import cast, List, Dict, Any, Sequence, Iterable, Tuple
 from mypy.errors import Errors
 from mypy.types import (
     Type, CallableType, Instance, TypeVarType, TupleType, UnionType, Void, NoneTyp, AnyType,
-    Overloaded, FunctionLike, DeletedType, TypeType
+    Overloaded, FunctionLike, DeletedType, TypeType, ANY_TYPE
 )
 from mypy.nodes import (
     TypeInfo, Context, MypyFile, op_methods, FuncDef, reverse_type_aliases, Arg
@@ -367,7 +367,7 @@ class MessageBuilder:
             else:
                 self.fail('Some element of union has no attribute "{}"'.format(
                     member), context)
-        return AnyType()
+        return ANY_TYPE
 
     def unsupported_operand_types(self, op: str, left_type: Any,
                                   right_type: Any, context: Context) -> None:
@@ -412,12 +412,12 @@ class MessageBuilder:
 
     def not_callable(self, typ: Type, context: Context) -> Type:
         self.fail('{} not callable'.format(self.format(typ)), context)
-        return AnyType()
+        return ANY_TYPE
 
     def untyped_function_call(self, callee: CallableType, context: Context) -> Type:
         name = callee.name if callee.name is not None else '(unknown)'
         self.fail('call to untyped function {} in typed context'.format(name), context)
-        return AnyType()
+        return ANY_TYPE
 
     def incompatible_argument(self, n: int, m: int, callee: CallableType, arg_type: Type,
                               arg_kind: int, context: Context) -> None:
@@ -712,7 +712,7 @@ class MessageBuilder:
 
     def not_implemented(self, msg: str, context: Context) -> Type:
         self.fail('Feature not implemented yet ({})'.format(msg), context)
-        return AnyType()
+        return ANY_TYPE
 
     def undefined_in_superclass(self, member: str, context: Context) -> None:
         self.fail('"{}" undefined in superclass'.format(member), context)
@@ -835,7 +835,7 @@ class MessageBuilder:
     def yield_from_invalid_operand_type(self, expr: Type, context: Context) -> Type:
         text = self.format(expr) if self.format(expr) != 'object' else expr
         self.fail('"yield from" can\'t be applied to {}'.format(text), context)
-        return AnyType()
+        return ANY_TYPE
 
     def invalid_signature(self, func_type: Type, context: Context) -> None:
         self.fail('Invalid signature "{}"'.format(func_type), context)

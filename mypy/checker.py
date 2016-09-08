@@ -28,7 +28,7 @@ from mypy.nodes import (
 from mypy.nodes import function_type, method_type, method_type_with_fallback
 from mypy import nodes
 from mypy.types import (
-    Type, AnyType, CallableType, Void, FunctionLike, Overloaded, TupleType,
+    Type, AnyType, ANY_TYPE, CallableType, Void, FunctionLike, Overloaded, TupleType,
     Instance, NoneTyp, ErrorType, strip_type,
     UnionType, TypeVarId, TypeVarType, PartialType, DeletedType, UninhabitedType,
     true_only, false_only
@@ -220,7 +220,7 @@ class TypeChecker(NodeVisitor[Type]):
         self.type_context.pop()
         self.store_type(node, typ)
         if self.typing_mode_none():
-            return AnyType()
+            return ANY_TYPE
         else:
             return typ
 
@@ -317,11 +317,11 @@ class TypeChecker(NodeVisitor[Type]):
         """
         if is_coroutine:
             # This means we're in Python 3.5 or later.
-            at = self.named_generic_type('typing.Awaitable', [AnyType()])
+            at = self.named_generic_type('typing.Awaitable', [ANY_TYPE])
             if is_subtype(at, typ):
                 return True
         else:
-            gt = self.named_generic_type('typing.Generator', [AnyType(), AnyType(), AnyType()])
+            gt = self.named_generic_type('typing.Generator', [ANY_TYPE, ANY_TYPE, ANY_TYPE])
             if is_subtype(gt, typ):
                 return True
         return isinstance(typ, Instance) and typ.type.fullname() == 'typing.AwaitableGenerator'
@@ -329,17 +329,17 @@ class TypeChecker(NodeVisitor[Type]):
     def get_generator_yield_type(self, return_type: Type, is_coroutine: bool) -> Type:
         """Given the declared return type of a generator (t), return the type it yields (ty)."""
         if isinstance(return_type, AnyType):
-            return AnyType()
+            return ANY_TYPE
         elif not self.is_generator_return_type(return_type, is_coroutine):
             # If the function doesn't have a proper Generator (or
             # Awaitable) return type, anything is permissible.
-            return AnyType()
+            return ANY_TYPE
         elif not isinstance(return_type, Instance):
             # Same as above, but written as a separate branch so the typechecker can understand.
-            return AnyType()
+            return ANY_TYPE
         elif return_type.type.fullname() == 'typing.Awaitable':
             # Awaitable: ty is Any.
-            return AnyType()
+            return ANY_TYPE
         elif return_type.args:
             # AwaitableGenerator, Generator, Iterator, or Iterable; ty is args[0].
             ret_type = return_type.args[0]
@@ -355,22 +355,22 @@ class TypeChecker(NodeVisitor[Type]):
             # parameters (i.e. is `object`), then the yielded values can't
             # be accessed so any type is acceptable.  IOW, ty is Any.
             # (However, see https://github.com/python/mypy/issues/1933)
-            return AnyType()
+            return ANY_TYPE
 
     def get_generator_receive_type(self, return_type: Type, is_coroutine: bool) -> Type:
         """Given a declared generator return type (t), return the type its yield receives (tc)."""
         if isinstance(return_type, AnyType):
-            return AnyType()
+            return ANY_TYPE
         elif not self.is_generator_return_type(return_type, is_coroutine):
             # If the function doesn't have a proper Generator (or
             # Awaitable) return type, anything is permissible.
-            return AnyType()
+            return ANY_TYPE
         elif not isinstance(return_type, Instance):
             # Same as above, but written as a separate branch so the typechecker can understand.
-            return AnyType()
+            return ANY_TYPE
         elif return_type.type.fullname() == 'typing.Awaitable':
             # Awaitable, AwaitableGenerator: tc is Any.
-            return AnyType()
+            return ANY_TYPE
         elif (return_type.type.fullname() in ('typing.Generator', 'typing.AwaitableGenerator')
               and len(return_type.args) >= 3):
             # Generator: tc is args[1].
@@ -386,14 +386,14 @@ class TypeChecker(NodeVisitor[Type]):
     def get_generator_return_type(self, return_type: Type, is_coroutine: bool) -> Type:
         """Given the declared return type of a generator (t), return the type it returns (tr)."""
         if isinstance(return_type, AnyType):
-            return AnyType()
+            return ANY_TYPE
         elif not self.is_generator_return_type(return_type, is_coroutine):
             # If the function doesn't have a proper Generator (or
             # Awaitable) return type, anything is permissible.
-            return AnyType()
+            return ANY_TYPE
         elif not isinstance(return_type, Instance):
             # Same as above, but written as a separate branch so the typechecker can understand.
-            return AnyType()
+            return ANY_TYPE
         elif return_type.type.fullname() == 'typing.Awaitable' and len(return_type.args) == 1:
             # Awaitable: tr is args[0].
             return return_type.args[0]
@@ -403,7 +403,7 @@ class TypeChecker(NodeVisitor[Type]):
             return return_type.args[2]
         else:
             # Supertype of Generator (Iterator, Iterable, object): tr is any.
-            return AnyType()
+            return ANY_TYPE
 
     def check_awaitable_expr(self, t: Type, ctx: Context, msg: str) -> Type:
         """Check the argument to `await` and extract the type of value.
@@ -412,7 +412,7 @@ class TypeChecker(NodeVisitor[Type]):
         """
         if not self.check_subtype(t, self.named_type('typing.Awaitable'), ctx,
                                   msg, 'actual type', 'expected type'):
-            return AnyType()
+            return ANY_TYPE
         else:
             echk = self.expr_checker
             method = echk.analyze_external_member_access('__await__', t, ctx)
@@ -758,10 +758,10 @@ class TypeChecker(NodeVisitor[Type]):
                 self.msg.signatures_incompatible(method, other_method, defn)
 
     def check_getattr_method(self, typ: CallableType, context: Context) -> None:
-        method_type = CallableType([AnyType(), self.named_type('builtins.str')],
+        method_type = CallableType([ANY_TYPE, self.named_type('builtins.str')],
                                    [nodes.Arg.POS, nodes.Arg.POS],
                                    [None],
-                                   AnyType(),
+                                   ANY_TYPE,
                                    self.named_type('builtins.function'))
         if not is_subtype(typ, method_type):
             self.msg.invalid_signature(typ, context)
@@ -999,7 +999,7 @@ class TypeChecker(NodeVisitor[Type]):
             lvalue_type, _, __ = self.check_lvalue(lvalue)
             if lvalue_type is None:
                 # TODO: This is broken.
-                lvalue_type = AnyType()
+                lvalue_type = ANY_TYPE
             message = '{} "{}"'.format(messages.INCOMPATIBLE_IMPORT_OF,
                                        cast(NameExpr, assign.rvalue).name)
             self.check_simple_assignment(lvalue_type, assign.rvalue, node,
@@ -1152,7 +1152,7 @@ class TypeChecker(NodeVisitor[Type]):
             for lv in lvalues:
                 if isinstance(lv, StarExpr):
                     lv = lv.expr
-                self.check_assignment(lv, self.temp_node(AnyType(), context), infer_lvalue_type)
+                self.check_assignment(lv, self.temp_node(ANY_TYPE, context), infer_lvalue_type)
         elif isinstance(rvalue_type, TupleType):
             self.check_multi_assignment_from_tuple(lvalues, rvalue, rvalue_type,
                                                   context, undefined_rvalue, infer_lvalue_type)
@@ -1243,7 +1243,7 @@ class TypeChecker(NodeVisitor[Type]):
 
     def type_is_iterable(self, type: Type) -> bool:
         return (is_subtype(type, self.named_generic_type('typing.Iterable',
-                                                        [AnyType()])) and
+                                                        [ANY_TYPE])) and
                 isinstance(type, Instance))
 
     def check_multi_assignment_from_iterable(self, lvalues: List[Node], rvalue_type: Type,
@@ -1311,7 +1311,7 @@ class TypeChecker(NodeVisitor[Type]):
                             init_type: Type, context: Context) -> None:
         """Infer the type of initialized variables from initializer type."""
         if self.typing_mode_weak():
-            self.set_inferred_type(name, lvalue, AnyType())
+            self.set_inferred_type(name, lvalue, ANY_TYPE)
             self.binder.assign_type(lvalue, init_type, self.binder.get_declaration(lvalue), True)
         elif self.is_unusable_type(init_type):
             self.check_usable_type(init_type, context)
@@ -1376,7 +1376,7 @@ class TypeChecker(NodeVisitor[Type]):
         We implement this here by giving x a valid type (Any).
         """
         if context.get_line() in self.errors.ignored_lines[self.errors.file]:
-            self.set_inferred_type(var, lvalue, AnyType())
+            self.set_inferred_type(var, lvalue, ANY_TYPE)
 
     def narrow_type_from_binder(self, expr: Node, known_type: Type) -> Type:
         if expr.literal >= Literal.TYPE:
@@ -1393,7 +1393,7 @@ class TypeChecker(NodeVisitor[Type]):
                                 rvalue_name: str = 'expression') -> Type:
         if self.is_stub and isinstance(rvalue, EllipsisExpr):
             # '...' is always a valid initializer in a stub.
-            return AnyType()
+            return ANY_TYPE
         else:
             rvalue_type = self.accept(rvalue, lvalue_type)
             if isinstance(rvalue_type, DeletedType):
@@ -1710,14 +1710,14 @@ class TypeChecker(NodeVisitor[Type]):
 
             if not isinstance(ttype, FunctionLike):
                 self.fail(messages.INVALID_EXCEPTION_TYPE, n)
-                return AnyType()
+                return ANY_TYPE
 
             item = ttype.items[0]
             ret_type = item.ret_type
             if not (is_subtype(ret_type, self.named_type('builtins.BaseException'))
                     and item.is_type_obj()):
                 self.fail(messages.INVALID_EXCEPTION_TYPE, n)
-                return AnyType()
+                return ANY_TYPE
 
             all_types.append(ret_type)
 
@@ -1740,7 +1740,7 @@ class TypeChecker(NodeVisitor[Type]):
 
         self.check_subtype(iterable,
                            self.named_generic_type('typing.AsyncIterable',
-                                                   [AnyType()]),
+                                                   [ANY_TYPE]),
                            expr, messages.ASYNC_ITERABLE_EXPECTED)
 
         echk = self.expr_checker
@@ -1765,13 +1765,13 @@ class TypeChecker(NodeVisitor[Type]):
                 joined = join_types(joined, item)
             if isinstance(joined, ErrorType):
                 self.fail(messages.CANNOT_INFER_ITEM_TYPE, expr)
-                return AnyType()
+                return ANY_TYPE
             return joined
         else:
             # Non-tuple iterable.
             self.check_subtype(iterable,
                                self.named_generic_type('typing.Iterable',
-                                                       [AnyType()]),
+                                                       [ANY_TYPE]),
                                expr, messages.ITERABLE_EXPECTED)
 
             echk = self.expr_checker
@@ -1820,7 +1820,7 @@ class TypeChecker(NodeVisitor[Type]):
         for d in e.decorators:
             if isinstance(d, RefExpr):
                 if d.fullname == 'typing.no_type_check':
-                    e.var.type = AnyType()
+                    e.var.type = ANY_TYPE
                     e.var.is_ready = True
                     return NoneTyp()
 
@@ -1874,7 +1874,7 @@ class TypeChecker(NodeVisitor[Type]):
         if target:
             self.check_assignment(target, self.temp_node(obj, expr))
         exit = echk.analyze_external_member_access('__aexit__', ctx, expr)
-        arg = self.temp_node(AnyType(), expr)
+        arg = self.temp_node(ANY_TYPE, expr)
         res = echk.check_call(exit, [arg] * 3, [nodes.Arg.POS] * 3, expr)[0]
         self.check_awaitable_expr(
             res, expr, messages.INCOMPATIBLE_TYPES_IN_ASYNC_WITH_AEXIT)
@@ -1887,7 +1887,7 @@ class TypeChecker(NodeVisitor[Type]):
         if target:
             self.check_assignment(target, self.temp_node(obj, expr))
         exit = echk.analyze_external_member_access('__exit__', ctx, expr)
-        arg = self.temp_node(AnyType(), expr)
+        arg = self.temp_node(ANY_TYPE, expr)
         echk.check_call(exit, [arg] * 3, [nodes.Arg.POS] * 3, expr)
 
     def visit_print_stmt(self, s: PrintStmt) -> Type:
@@ -1922,7 +1922,7 @@ class TypeChecker(NodeVisitor[Type]):
         # Check that the expr is an instance of Iterable and get the type of the iterator produced
         # by __iter__.
         if isinstance(subexpr_type, AnyType):
-            iter_type = AnyType()
+            iter_type = ANY_TYPE
         elif (isinstance(subexpr_type, Instance) and
                 is_subtype(subexpr_type, self.named_type('typing.Iterable'))):
             if self.is_async_def(subexpr_type) and not self.has_coroutine_decorator(return_type):
@@ -1930,16 +1930,16 @@ class TypeChecker(NodeVisitor[Type]):
             iter_method_type = self.expr_checker.analyze_external_member_access(
                 '__iter__',
                 subexpr_type,
-                AnyType())
+                ANY_TYPE)
 
             generic_generator_type = self.named_generic_type('typing.Generator',
-                                                             [AnyType(), AnyType(), AnyType()])
+                                                             [ANY_TYPE, ANY_TYPE, ANY_TYPE])
             iter_type, _ = self.expr_checker.check_call(iter_method_type, [], [],
                                                         context=generic_generator_type)
         else:
             if not (self.is_async_def(subexpr_type) and self.has_coroutine_decorator(return_type)):
                 self.msg.yield_from_invalid_operand_type(subexpr_type, e)
-                iter_type = AnyType()
+                iter_type = ANY_TYPE
             else:
                 iter_type = self.check_awaitable_expr(subexpr_type, e,
                                                       messages.INCOMPATIBLE_TYPES_IN_YIELD_FROM)
@@ -1961,7 +1961,7 @@ class TypeChecker(NodeVisitor[Type]):
             # Non-Generators don't return anything from `yield from` expressions.
             # However special-case Any (which might be produced by an error).
             if isinstance(actual_item_type, AnyType):
-                return AnyType()
+                return ANY_TYPE
             else:
                 if experiments.STRICT_OPTIONAL:
                     return NoneTyp(is_ret_type=True)
@@ -2055,14 +2055,14 @@ class TypeChecker(NodeVisitor[Type]):
 
     def visit_type_var_expr(self, e: TypeVarExpr) -> Type:
         # TODO: Perhaps return a special type used for type variables only?
-        return AnyType()
+        return ANY_TYPE
 
     def visit_newtype_expr(self, e: NewTypeExpr) -> Type:
-        return AnyType()
+        return ANY_TYPE
 
     def visit_namedtuple_expr(self, e: NamedTupleExpr) -> Type:
         # TODO: Perhaps return a type object type?
-        return AnyType()
+        return ANY_TYPE
 
     def visit_list_expr(self, e: ListExpr) -> Type:
         return self.expr_checker.visit_list_expr(e)
@@ -2123,7 +2123,7 @@ class TypeChecker(NodeVisitor[Type]):
             expected_type = self.named_generic_type('typing.Awaitable', [expected_type])
         actual_type = self.accept(e.expr, expected_type)
         if isinstance(actual_type, AnyType):
-            return AnyType()
+            return ANY_TYPE
         return self.check_awaitable_expr(actual_type, e, messages.INCOMPATIBLE_TYPES_IN_AWAIT)
 
     #
@@ -2298,7 +2298,7 @@ class TypeChecker(NodeVisitor[Type]):
                     var.type = NoneTyp()
                 else:
                     self.msg.fail(messages.NEED_ANNOTATION_FOR_VAR, context)
-                    var.type = AnyType()
+                    var.type = ANY_TYPE
 
     def find_partial_types(self, var: Var) -> Optional[Dict[Var, Context]]:
         for partial_types in reversed(self.partial_types):
@@ -2395,7 +2395,7 @@ def conditional_type_map(expr: Node,
     else:
         # An isinstance check, but we don't understand the type
         if weak:
-            return {expr: AnyType()}, {expr: current_type}
+            return {expr: ANY_TYPE}, {expr: current_type}
         else:
             return {}, {}
 

@@ -1,7 +1,7 @@
 from typing import (Any, Dict, List, Set, Iterator)
 from contextlib import contextmanager
 
-from mypy.types import Type, AnyType, PartialType
+from mypy.types import Type, AnyType, PartialType, ANY_TYPE
 from mypy.nodes import (Node, Var)
 
 from mypy.subtypes import is_subtype
@@ -138,7 +138,7 @@ class ConditionalTypeBinder:
             if isinstance(self.declarations.get(key), AnyType):
                 type = resulting_values[0]
                 if not all(is_same_type(type, t) for t in resulting_values[1:]):
-                    type = AnyType()
+                    type = ANY_TYPE
             else:
                 type = resulting_values[0]
                 for other in resulting_values[1:]:

@@ -3,7 +3,7 @@ from typing import List, Dict
 import mypy.subtypes
 from mypy.sametypes import is_same_type
 from mypy.expandtype import expand_type
-from mypy.types import Type, TypeVarId, TypeVarType, CallableType, AnyType, Void
+from mypy.types import Type, TypeVarId, TypeVarType, CallableType, AnyType, Void, ANY_TYPE
 from mypy.messages import MessageBuilder
 from mypy.nodes import Context
 
@@ -20,7 +20,7 @@ def apply_generic_arguments(callable: CallableType, types: List[Type],
     tvars = callable.variables
     if len(tvars) != len(types):
         msg.incompatible_type_application(len(tvars), len(types), context)
-        return AnyType()
+        return ANY_TYPE
 
     # Check that inferred type variable values are compatible with allowed
     # values and bounds.  Also, promote subtype values to allowed values.

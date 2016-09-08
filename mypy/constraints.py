@@ -5,7 +5,7 @@ from typing import List, Optional
 from mypy.types import (
     CallableType, Type, TypeVisitor, UnboundType, AnyType, Void, NoneTyp, TypeVarType,
     Instance, TupleType, UnionType, Overloaded, ErasedType, PartialType, DeletedType,
-    UninhabitedType, TypeType, TypeVarId, is_named_instance
+    UninhabitedType, TypeType, TypeVarId, is_named_instance, ANY_TYPE
 )
 from mypy.maptype import map_instance_to_supertype
 from mypy import nodes
@@ -79,19 +79,19 @@ def get_actual_type(arg_type: Type, kind: nodes.Arg,
                 # TODO try to map type arguments to Iterable
                 return arg_type.args[0]
             else:
-                return AnyType()
+                return ANY_TYPE
         elif isinstance(arg_type, TupleType):
             # Get the next tuple item of a tuple *arg.
             tuple_counter[0] += 1
             return arg_type.items[tuple_counter[0] - 1]
         else:
-            return AnyType()
+            return ANY_TYPE
     elif kind == nodes.Arg.STAR2:
         if isinstance(arg_type, Instance) and (arg_type.type.fullname() == 'builtins.dict'):
             # Dict **arg. TODO more general (Mapping)
             return arg_type.args[1]
         else:
-            return AnyType()
+            return ANY_TYPE
     else:
         # No translation for other kinds.
         return arg_type
@@ -309,7 +309,7 @@ class ConstraintBuilderVisitor(TypeVisitor[List[Constraint]]):
         elif isinstance(self.actual, AnyType):
             # FIX what if generic
             res = self.infer_against_any(template.arg_types)
-            res.extend(infer_constraints(template.ret_type, AnyType(),
+            res.extend(infer_constraints(template.ret_type, ANY_TYPE,
                                          self.direction))
             return res
         elif isinstance(self.actual, Overloaded):
@@ -349,7 +349,7 @@ class ConstraintBuilderVisitor(TypeVisitor[List[Constraint]]):
     def infer_against_any(self, types: List[Type]) -> List[Constraint]:
         res = []  # type: List[Constraint]
         for t in types:
-            res.extend(infer_constraints(t, AnyType(), self.direction))
+            res.extend(infer_constraints(t, ANY_TYPE, self.direction))
         return res
 
     def visit_overloaded(self, template: Overloaded) -> List[Constraint]:

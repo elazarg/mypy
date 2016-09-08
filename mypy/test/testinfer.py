@@ -5,7 +5,7 @@ import typing
 from mypy.myunit import Suite, assert_equal, assert_true
 from mypy.checkexpr import map_actuals_to_formals
 from mypy.nodes import Arg
-from mypy.types import AnyType, TupleType
+from mypy.types import TupleType, ANY_TYPE
 
 
 class MapActualsToFormalsSuite(Suite):
@@ -74,17 +74,17 @@ class MapActualsToFormalsSuite(Suite):
             [Arg.STAR],
             [Arg.POS],
             [[0]],
-            self.tuple(AnyType()))
+            self.tuple(ANY_TYPE))
         self.assert_vararg_map(
             [Arg.STAR],
             [Arg.POS, Arg.POS],
             [[0], [0]],
-            self.tuple(AnyType(), AnyType()))
+            self.tuple(ANY_TYPE, ANY_TYPE))
         self.assert_vararg_map(
             [Arg.STAR],
             [Arg.POS, Arg.OPT, Arg.OPT],
             [[0], [0], []],
-            self.tuple(AnyType(), AnyType()))
+            self.tuple(ANY_TYPE, ANY_TYPE))
 
     def tuple(self, *args):
         return TupleType(args, None)
@@ -173,7 +173,7 @@ class MapActualsToFormalsSuite(Suite):
             caller_names,
             callee_kinds,
             callee_names,
-            lambda i: AnyType())
+            lambda i: ANY_TYPE)
         assert_equal(result, expected)
 
     def assert_vararg_map(self, caller_kinds, callee_kinds, expected,

@@ -3,7 +3,7 @@ from typing import Container, Callable, Optional
 from mypy.types import (
     Type, TypeVisitor, UnboundType, ErrorType, AnyType, Void, NoneTyp, TypeVarId,
     Instance, TypeVarType, CallableType, TupleType, UnionType, Overloaded, ErasedType,
-    PartialType, DeletedType, TypeTranslator, TypeList, UninhabitedType, TypeType
+    PartialType, DeletedType, TypeTranslator, TypeList, UninhabitedType, TypeType, ANY_TYPE
 )
 from mypy import experiments
 
@@ -59,10 +59,10 @@ class EraseTypeVisitor(TypeVisitor[Type]):
         return t
 
     def visit_instance(self, t: Instance) -> Type:
-        return Instance(t.type, [AnyType()] * len(t.args), t.line)
+        return Instance(t.type, [ANY_TYPE] * len(t.args), t.line)
 
     def visit_type_var(self, t: TypeVarType) -> Type:
-        return AnyType()
+        return ANY_TYPE
 
     def visit_callable_type(self, t: CallableType) -> Type:
         # We must preserve the fallback type for overload resolution to work.
@@ -79,7 +79,7 @@ class EraseTypeVisitor(TypeVisitor[Type]):
         return t.fallback.accept(self)
 
     def visit_union_type(self, t: UnionType) -> Type:
-        return AnyType()        # XXX: return underlying type if only one?
+        return ANY_TYPE        # XXX: return underlying type if only one?
 
     def visit_type_type(self, t: TypeType) -> Type:
         return TypeType(t.item.accept(self), line=t.line)
@@ -94,7 +94,7 @@ def erase_typevars(t: Type, ids_to_erase: Optional[Container[TypeVarId]] = None)
             return True
     else:
         erase_id = ids_to_erase.__contains__
-    return t.accept(TypeVarEraser(erase_id, AnyType()))
+    return t.accept(TypeVarEraser(erase_id, ANY_TYPE))
 
 
 def replace_meta_vars(t: Type, target_type: Type) -> Type:

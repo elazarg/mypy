@@ -31,7 +31,7 @@ from mypy.nodes import (
 from mypy.defaults import Version
 from mypy import nodes
 from mypy.errors import Errors, CompileError
-from mypy.types import Type, CallableType, AnyType, UnboundType
+from mypy.types import Type, CallableType, AnyType, UnboundType, ANY_TYPE
 from mypy.parsetype import (
     parse_type, parse_types, parse_signature, TypeParseError
 )
@@ -441,7 +441,7 @@ class Parser:
                 if sig.is_ellipsis_args:
                     # When we encounter an ellipsis, fill in the arg_types with
                     # a bunch of AnyTypes, emulating Callable[..., T]
-                    arg_types = [AnyType()] * len(arg_kinds)  # type: List[Type]
+                    arg_types = [ANY_TYPE] * len(arg_kinds)  # type: List[Type]
                     typ = CallableType(
                         arg_types,
                         arg_kinds,
@@ -454,7 +454,7 @@ class Parser:
                                               [nodes.Arg.POS] + sig.arg_kinds,
                                               def_tok.line)
                     # Add implicit 'self' argument to signature.
-                    first_arg = [AnyType()]  # type: List[Type]
+                    first_arg = [ANY_TYPE]  # type: List[Type]
                     typ = CallableType(
                         first_arg + sig.arg_types,
                         arg_kinds,

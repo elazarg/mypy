@@ -10,7 +10,7 @@ from mypy.expandtype import expand_type
 from mypy.join import join_types, join_simple
 from mypy.meet import meet_types
 from mypy.types import (
-    UnboundType, AnyType, Void, CallableType, TupleType, TypeVarDef, Type,
+    UnboundType, ANY_TYPE, Void, CallableType, TupleType, TypeVarDef, Type,
     Instance, NoneTyp, ErrorType, Overloaded, TypeType, UnionType, UninhabitedType,
     true_only, false_only
 )
@@ -28,14 +28,14 @@ class TypesSuite(Suite):
         self.function = self.fx.function
 
     def test_any(self):
-        assert_equal(str(AnyType()), 'Any')
+        assert_equal(str(ANY_TYPE), 'Any')
 
     def test_simple_unbound_type(self):
         u = UnboundType('Foo')
         assert_equal(str(u), 'Foo?')
 
     def test_generic_unbound_type(self):
-        u = UnboundType('Foo', [UnboundType('T'), AnyType()])
+        u = UnboundType('Foo', [UnboundType('T'), ANY_TYPE])
         assert_equal(str(u), 'Foo?[T?, Any]')
 
     def test_void_type(self):
@@ -45,7 +45,7 @@ class TypesSuite(Suite):
         c = CallableType([self.x, self.y],
                          [Arg.POS, Arg.POS],
                          [None, None],
-                         AnyType(), self.function)
+                         ANY_TYPE, self.function)
         assert_equal(str(c), 'def (X?, Y?) -> Any')
 
         c2 = CallableType([], [], [], Void(None), False)
@@ -53,29 +53,29 @@ class TypesSuite(Suite):
 
     def test_callable_type_with_default_args(self):
         c = CallableType([self.x, self.y], [Arg.POS, Arg.OPT], [None, None],
-                     AnyType(), self.function)
+                     ANY_TYPE, self.function)
         assert_equal(str(c), 'def (X?, Y? =) -> Any')
 
         c2 = CallableType([self.x, self.y], [Arg.OPT, Arg.OPT], [None, None],
-                      AnyType(), self.function)
+                      ANY_TYPE, self.function)
         assert_equal(str(c2), 'def (X? =, Y? =) -> Any')
 
     def test_callable_type_with_var_args(self):
-        c = CallableType([self.x], [Arg.STAR], [None], AnyType(), self.function)
+        c = CallableType([self.x], [Arg.STAR], [None], ANY_TYPE, self.function)
         assert_equal(str(c), 'def (*X?) -> Any')
 
         c2 = CallableType([self.x, self.y], [Arg.POS, Arg.STAR],
-                      [None, None], AnyType(), self.function)
+                      [None, None], ANY_TYPE, self.function)
         assert_equal(str(c2), 'def (X?, *Y?) -> Any')
 
         c3 = CallableType([self.x, self.y], [Arg.OPT, Arg.STAR], [None, None],
-                      AnyType(), self.function)
+                      ANY_TYPE, self.function)
         assert_equal(str(c3), 'def (X? =, *Y?) -> Any')
 
     def test_tuple_type(self):
         assert_equal(str(TupleType([], None)), 'Tuple[]')
         assert_equal(str(TupleType([self.x], None)), 'Tuple[X?]')
-        assert_equal(str(TupleType([self.x, AnyType()], None)), 'Tuple[X?, Any]')
+        assert_equal(str(TupleType([self.x, ANY_TYPE], None)), 'Tuple[X?, Any]')
 
     def test_type_variable_binding(self):
         assert_equal(str(TypeVarDef('X', 1, None, self.fx.o)), 'X')
@@ -241,7 +241,7 @@ class TypeOpsSuite(Suite):
         assert_false(tuple_type.can_be_true)
 
     def test_nonempty_tuple_always_true(self):
-        tuple_type = self.tuple(AnyType(), AnyType())
+        tuple_type = self.tuple(ANY_TYPE, ANY_TYPE)
         assert_true(tuple_type.can_be_true)
         assert_false(tuple_type.can_be_false)
 
@@ -268,7 +268,7 @@ class TypeOpsSuite(Suite):
         assert_type(UninhabitedType, to)
 
     def test_true_only_of_true_type_is_idempotent(self):
-        always_true = self.tuple(AnyType())
+        always_true = self.tuple(ANY_TYPE)
         to = true_only(always_true)
         assert_true(always_true is to)
 
@@ -282,7 +282,7 @@ class TypeOpsSuite(Suite):
         assert_true(self.fx.a.can_be_false)
 
     def test_true_only_of_union(self):
-        tup_type = self.tuple(AnyType())
+        tup_type = self.tuple(ANY_TYPE)
         # Union of something that is unknown, something that is always true, something
         # that is always false
         union_type = UnionType([self.fx.a, tup_type, self.tuple()])
@@ -293,7 +293,7 @@ class TypeOpsSuite(Suite):
         assert_true(to.items[1] is tup_type)
 
     def test_false_only_of_true_type_is_uninhabited(self):
-        fo = false_only(self.tuple(AnyType()))
+        fo = false_only(self.tuple(ANY_TYPE))
         assert_type(UninhabitedType, fo)
 
     def test_false_only_of_false_type_is_idempotent(self):
@@ -314,7 +314,7 @@ class TypeOpsSuite(Suite):
         tup_type = self.tuple()
         # Union of something that is unknown, something that is always true, something
         # that is always false
-        union_type = UnionType([self.fx.a, self.tuple(AnyType()), tup_type])
+        union_type = UnionType([self.fx.a, self.tuple(ANY_TYPE), tup_type])
         assert_equal(len(union_type.items), 3)
         fo = false_only(union_type)
         assert_equal(len(fo.items), 2)
@@ -443,7 +443,7 @@ class JoinSuite(Suite):
 
     def test_mixed_truth_restricted_type(self):
         # join_types against differently restricted truthiness types drops restrictions.
-        true_any = true_only(AnyType())
+        true_any = true_only(ANY_TYPE)
         false_o = false_only(self.fx.o)
         j = join_types(true_any, false_o)
         assert_true(j.can_be_true)

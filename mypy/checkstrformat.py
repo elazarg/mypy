@@ -5,7 +5,7 @@ import re
 from typing import cast, List, Tuple, Dict, Callable
 
 from mypy.types import (
-    Type, AnyType, TupleType, Instance, UnionType
+    Type, AnyType, ANY_TYPE, TupleType, Instance, UnionType
 )
 from mypy.nodes import (
     Node, StrExpr, BytesExpr, TupleExpr, DictExpr, Context
@@ -165,7 +165,7 @@ class StringFormatterChecker:
         else:
             rep_type = self.accept(replacements)
             dict_type = self.chk.named_generic_type('builtins.dict',
-                                            [AnyType(), AnyType()])
+                                            [ANY_TYPE, ANY_TYPE])
             self.chk.check_subtype(rep_type, dict_type, replacements,
                                    messages.FORMAT_REQUIRES_MAPPING,
                                    'expression has type', 'expected type for mapping is')
@@ -275,7 +275,7 @@ class StringFormatterChecker:
         specifier types accept both float and integers.
         """
         if p in ['s', 'r']:
-            return AnyType()
+            return ANY_TYPE
         elif p in ['d', 'i', 'o', 'u', 'x', 'X',
                    'e', 'E', 'f', 'F', 'g', 'G']:
             return UnionType([self.named_type('builtins.int'),

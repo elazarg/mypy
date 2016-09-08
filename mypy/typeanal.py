@@ -3,7 +3,7 @@
 from typing import Callable, cast, List
 
 from mypy.types import (
-    Type, UnboundType, TypeVarType, TupleType, UnionType, Instance,
+    Type, UnboundType, TypeVarType, TupleType, UnionType, Instance, ANY_TYPE,
     AnyType, CallableType, Void, NoneTyp, DeletedType, TypeList, TypeVarDef, TypeVisitor,
     StarType, PartialType, EllipsisType, UninhabitedType, TypeType
 )
@@ -87,7 +87,7 @@ class TypeAnalyser(TypeVisitor[Type]):
                 # UNBOUND_IMPORTED can happen if an unknown name was imported.
                 if sym.kind != DefKind.UNBOUND_IMPORTED:
                     self.fail('Internal error (node is None, kind={})'.format(sym.kind), t)
-                return AnyType()
+                return ANY_TYPE
             fullname = sym.node.fullname()
             if sym.kind == DefKind.BOUND_TVAR:
                 if len(t.args) > 0:
@@ -101,7 +101,7 @@ class TypeAnalyser(TypeVisitor[Type]):
                 else:
                     return Void()
             elif fullname == 'typing.Any':
-                return AnyType()
+                return ANY_TYPE
             elif fullname == 'typing.Tuple':
                 if len(t.args) == 2 and isinstance(t.args[1], EllipsisType):
                     # Tuple[T, ...] (uniform, variable-length tuple)
@@ -116,7 +116,7 @@ class TypeAnalyser(TypeVisitor[Type]):
             elif fullname == 'typing.Optional':
                 if len(t.args) != 1:
                     self.fail('Optional[...] must have exactly one type argument', t)
-                    return AnyType()
+                    return ANY_TYPE
                 items = self.anal_array(t.args)
                 if experiments.STRICT_OPTIONAL:
                     return UnionType.make_simplified_union([items[0], NoneTyp()])
@@ -127,7 +127,7 @@ class TypeAnalyser(TypeVisitor[Type]):
                 return self.analyze_callable_type(t)
             elif fullname == 'typing.Type':
                 if len(t.args) == 0:
-                    return TypeType(AnyType(), line=t.line)
+                    return TypeType(ANY_TYPE, line=t.line)
                 if len(t.args) != 1:
                     self.fail('Type[...] must have exactly one type argument', t)
                 items = self.anal_array(t.args)
@@ -145,13 +145,13 @@ class TypeAnalyser(TypeVisitor[Type]):
                     # context. This is slightly problematic as it allows using the type 'Any'
                     # as a base class -- however, this will fail soon at runtime so the problem
                     # is pretty minor.
-                    return AnyType()
+                    return ANY_TYPE
                 self.fail('Invalid type "{}"'.format(name), t)
                 return t
             info = sym.node  # type: TypeInfo
             if len(t.args) > 0 and info.fullname() == 'builtins.tuple':
                 return TupleType(self.anal_array(t.args),
-                                 Instance(info, [AnyType()], t.line),
+                                 Instance(info, [ANY_TYPE], t.line),
                                  t.line)
             else:
                 # Analyze arguments and construct Instance type. The
@@ -168,11 +168,11 @@ class TypeAnalyser(TypeVisitor[Type]):
                     # represented as a tuple type.
                     if t.args:
                         self.fail('Generic tuple types not supported', t)
-                        return AnyType()
+                        return ANY_TYPE
                     return tup.copy_modified(items=self.anal_array(tup.items),
                                              fallback=instance)
         else:
-            return AnyType()
+            return ANY_TYPE
 
     def visit_any(self, t: AnyType) -> Type:
         return t
@@ -191,7 +191,7 @@ class TypeAnalyser(TypeVisitor[Type]):
 
     def visit_type_list(self, t: TypeList) -> Type:
         self.fail('Invalid type', t)
-        return AnyType()
+        return ANY_TYPE
 
     def visit_instance(self, t: Instance) -> Type:
         return t
@@ -208,12 +208,12 @@ class TypeAnalyser(TypeVisitor[Type]):
     def visit_tuple_type(self, t: TupleType) -> Type:
         if t.implicit:
             self.fail('Invalid tuple literal type', t)
-            return AnyType()
+            return ANY_TYPE
         star_count = sum(1 for item in t.items if isinstance(item, StarType))
         if star_count > 1:
             self.fail('At most one star type allowed in a tuple', t)
-            return AnyType()
-        fallback = t.fallback if t.fallback else self.builtin_type('builtins.tuple', [AnyType()])
+            return ANY_TYPE
+        fallback = t.fallback if t.fallback else self.builtin_type('builtins.tuple', [ANY_TYPE])
         return TupleType(self.anal_array(t.items), fallback, t.line)
 
     def visit_star_type(self, t: StarType) -> Type:
@@ -227,7 +227,7 @@ class TypeAnalyser(TypeVisitor[Type]):
 
     def visit_ellipsis_type(self, t: EllipsisType) -> Type:
         self.fail("Unexpected '...'", t)
-        return AnyType()
+        return ANY_TYPE
 
     def visit_type_type(self, t: TypeType) -> Type:
         return TypeType(t.item.accept(self), line=t.line)
@@ -236,10 +236,10 @@ class TypeAnalyser(TypeVisitor[Type]):
         fallback = self.builtin_type('builtins.function')
         if len(t.args) == 0:
             # Callable (bare). Treat as Callable[..., Any].
-            return CallableType([AnyType(), AnyType()],
+            return CallableType([ANY_TYPE, ANY_TYPE],
                                 [nodes.Arg.STAR, nodes.Arg.STAR2],
                                 [None, None],
-                                ret_type=AnyType(),
+                                ret_type=ANY_TYPE,
                                 fallback=fallback,
                                 is_ellipsis_args=True)
         elif len(t.args) == 2:
@@ -254,7 +254,7 @@ class TypeAnalyser(TypeVisitor[Type]):
                                     fallback=fallback)
             elif isinstance(t.args[0], EllipsisType):
                 # Callable[..., RET] (with literal ellipsis; accept arbitrary arguments)
-                return CallableType([AnyType(), AnyType()],
+                return CallableType([ANY_TYPE, ANY_TYPE],
                                     [nodes.Arg.STAR, nodes.Arg.STAR2],
                                     [None, None],
                                     ret_type=ret_type,
@@ -262,10 +262,10 @@ class TypeAnalyser(TypeVisitor[Type]):
                                     is_ellipsis_args=True)
             else:
                 self.fail('The first argument to Callable must be a list of types or "..."', t)
-                return AnyType()
+                return ANY_TYPE
 
         self.fail('Invalid function type', t)
-        return AnyType()
+        return ANY_TYPE
 
     def anal_array(self, a: List[Type]) -> List[Type]:
         res = []  # type: List[Type]
@@ -288,7 +288,7 @@ class TypeAnalyser(TypeVisitor[Type]):
         return Instance(info, args or [])
 
     def tuple_type(self, items: List[Type]) -> TupleType:
-        return TupleType(items, fallback=self.builtin_type('builtins.tuple', [AnyType()]))
+        return TupleType(items, fallback=self.builtin_type('builtins.tuple', [ANY_TYPE]))
 
 
 class TypeAnalyserPass3(TypeVisitor[None]):
@@ -320,7 +320,7 @@ class TypeAnalyserPass3(TypeVisitor[None]):
         if len(t.args) != len(info.type_vars):
             if len(t.args) == 0:
                 # Insert implicit 'Any' type arguments.
-                t.args = [AnyType()] * len(info.type_vars)
+                t.args = [ANY_TYPE] * len(info.type_vars)
                 return
             # Invalid number of type parameters.
             n = len(info.type_vars)
@@ -337,7 +337,7 @@ class TypeAnalyserPass3(TypeVisitor[None]):
             # Construct the correct number of type arguments, as
             # otherwise the type checker may crash as it expects
             # things to be right.
-            t.args = [AnyType() for _ in info.type_vars]
+            t.args = [ANY_TYPE for _ in info.type_vars]
         elif info.defn.type_vars:
             # Check type argument values.
             for arg, TypeVar in zip(t.args, info.defn.type_vars):

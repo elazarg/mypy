@@ -240,8 +240,8 @@ class TypeList(Type):
 class AnyType(Type):
     """The type 'Any'."""
 
-    def __init__(self, implicit: bool = False, line: int = -1) -> None:
-        super().__init__(line)
+    def __init__(self, implicit: bool = False) -> None:
+        super().__init__()
         self.implicit = implicit
 
     def accept(self, visitor: 'TypeVisitor[T]') -> T:
@@ -253,8 +253,9 @@ class AnyType(Type):
     @classmethod
     def deserialize(cls, data: JsonDict) -> 'AnyType':
         assert data['.class'] == 'AnyType'
-        return AnyType()
+        return ANY_TYPE
 
+ANY_TYPE = AnyType()  # type: AnyType
 
 class Void(Type):
     """The return type 'None'.
@@ -840,7 +841,7 @@ class UnionType(Type):
             items = all_items
 
         if any(isinstance(typ, AnyType) for typ in items):
-            return AnyType()
+            return ANY_TYPE
 
         from mypy.subtypes import is_subtype
         removed = set()  # type: Set[int]

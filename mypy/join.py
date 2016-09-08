@@ -6,7 +6,7 @@ from mypy.types import (
     Type, AnyType, NoneTyp, Void, TypeVisitor, Instance, UnboundType,
     ErrorType, TypeVarType, CallableType, TupleType, ErasedType, TypeList,
     UnionType, FunctionLike, Overloaded, PartialType, DeletedType,
-    UninhabitedType, TypeType, true_or_false
+    UninhabitedType, TypeType, true_or_false, ANY_TYPE
 )
 from mypy.maptype import map_instance_to_supertype
 from mypy.subtypes import is_subtype, is_equivalent, is_subtype_ignoring_tvars
@@ -100,7 +100,7 @@ class TypeJoinVisitor(TypeVisitor[Type]):
         if isinstance(self.s, Void) or isinstance(self.s, ErrorType):
             return ErrorType()
         else:
-            return AnyType()
+            return ANY_TYPE
 
     def visit_union_type(self, t: UnionType) -> Type:
         if is_subtype(self.s, t):
@@ -128,7 +128,7 @@ class TypeJoinVisitor(TypeVisitor[Type]):
             if isinstance(self.s, (NoneTyp, UninhabitedType)):
                 return t
             elif isinstance(self.s, UnboundType):
-                return AnyType()
+                return ANY_TYPE
             elif isinstance(self.s, Void) or isinstance(self.s, ErrorType):
                 return ErrorType()
             else:
@@ -257,7 +257,7 @@ class TypeJoinVisitor(TypeVisitor[Type]):
         if isinstance(typ, Instance):
             return object_from_instance(typ)
         elif isinstance(typ, UnboundType):
-            return AnyType()
+            return ANY_TYPE
         elif isinstance(typ, Void) or isinstance(typ, ErrorType):
             return ErrorType()
         elif isinstance(typ, TupleType):
@@ -267,7 +267,7 @@ class TypeJoinVisitor(TypeVisitor[Type]):
         elif isinstance(typ, TypeVarType):
             return self.default(typ.upper_bound)
         else:
-            return AnyType()
+            return ANY_TYPE
 
 
 def join_instances(t: Instance, s: Instance) -> Type:

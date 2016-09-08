@@ -17,7 +17,7 @@ from mypy.nodes import (
     AwaitExpr, Arg
 )
 from mypy.types import (
-    Type, CallableType, AnyType, UnboundType, TupleType, TypeList, EllipsisType,
+    Type, CallableType, UnboundType, TupleType, TypeList, EllipsisType, ANY_TYPE
 )
 from mypy.defaults import Version
 from mypy import experiments
@@ -269,16 +269,16 @@ class ASTConverter(ast35.NodeTransformer):
             # for ellipsis arg
             if (len(func_type_ast.argtypes) == 1 and
                     isinstance(func_type_ast.argtypes[0], ast35.Ellipsis)):
-                arg_types = [a.type_annotation if a.type_annotation is not None else AnyType()
+                arg_types = [a.type_annotation if a.type_annotation is not None else ANY_TYPE
                              for a in args]
             else:
-                arg_types = [a if a is not None else AnyType() for
+                arg_types = [a if a is not None else ANY_TYPE for
                             a in TypeConverter(line=n.lineno).visit_list(func_type_ast.argtypes)]
             return_type = TypeConverter(line=n.lineno).visit(func_type_ast.returns)
 
             # add implicit self type
             if self.in_class() and len(arg_types) < len(args):
-                arg_types.insert(0, AnyType())
+                arg_types.insert(0, ANY_TYPE)
         else:
             arg_types = [a.type_annotation for a in args]
             return_type = TypeConverter(line=n.lineno).visit(n.returns)
@@ -291,10 +291,10 @@ class ASTConverter(ast35.NodeTransformer):
 
         func_type = None
         if any(arg_types) or return_type:
-            func_type = CallableType([a if a is not None else AnyType() for a in arg_types],
+            func_type = CallableType([a if a is not None else ANY_TYPE for a in arg_types],
                                      arg_kinds,
                                      arg_names,
-                                     return_type if return_type is not None else AnyType(),
+                                     return_type if return_type is not None else ANY_TYPE,
                                      None)
 
         func_def = FuncDef(n.name,

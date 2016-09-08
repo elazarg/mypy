@@ -7,7 +7,7 @@ from typing import List
 
 from mypy.types import (
     Type, TypeVarType, AnyType, Void, ErrorType, NoneTyp,
-    Instance, CallableType, TypeVarDef, TypeType,
+    Instance, CallableType, TypeVarDef, TypeType, ANY_TYPE
 )
 from mypy.nodes import (
     TypeInfo, ClassDef, Block, Arg, SymbolTable, Variance)
@@ -39,7 +39,7 @@ class TypeFixture:
         self.sf1 = make_type_var('S', -1, [], self.o, variance)  # S`-1 (type variable)
 
         # Simple types
-        self.anyt = AnyType()
+        self.anyt = ANY_TYPE
         self.void = Void()
         self.err = ErrorType()
         self.nonet = NoneTyp()

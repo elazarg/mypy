@@ -2244,10 +2244,10 @@ def function_type(func: FuncBase, fallback: 'mypy.types.Instance') -> 'mypy.type
             names.append(arg.variable.name())
 
         return mypy.types.CallableType(
-            [mypy.types.AnyType()] * len(fdef.arguments),
+            [mypy.types.ANY_TYPE] * len(fdef.arguments),
             [arg.kind for arg in fdef.arguments],
             names,
-            mypy.types.AnyType(),
+            mypy.types.ANY_TYPE,
             fallback,
             name,
             implicit=True,

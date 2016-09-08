@@ -2,7 +2,7 @@ from typing import Dict, List, cast
 
 from mypy.expandtype import expand_type
 from mypy.nodes import TypeInfo
-from mypy.types import Type, TypeVarId, Instance, AnyType
+from mypy.types import Type, TypeVarId, Instance, ANY_TYPE
 
 
 def map_instance_to_supertype(instance: Instance,
@@ -79,7 +79,7 @@ def map_instance_to_direct_supertypes(instance: Instance,
     else:
         # Relationship with the supertype not specified explicitly. Use dynamic
         # type arguments implicitly.
-        return [Instance(supertype, [AnyType()] * len(supertype.type_vars))]
+        return [Instance(supertype, [ANY_TYPE] * len(supertype.type_vars))]
 
 
 def instance_to_type_environment(instance: Instance) -> Dict[TypeVarId, Type]:

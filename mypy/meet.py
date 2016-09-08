@@ -4,7 +4,7 @@ from mypy.join import is_similar_callables, combine_similar_callables
 from mypy.types import (
     Type, AnyType, TypeVisitor, UnboundType, Void, ErrorType, NoneTyp, TypeVarType,
     Instance, CallableType, TupleType, ErasedType, TypeList, UnionType, PartialType,
-    DeletedType, UninhabitedType, TypeType
+    DeletedType, UninhabitedType, TypeType, ANY_TYPE
 )
 from mypy.subtypes import is_subtype
 from mypy.nodes import TypeInfo
@@ -131,13 +131,13 @@ class TypeMeetVisitor(TypeVisitor[Type]):
             return ErrorType()
         elif isinstance(self.s, NoneTyp):
             if experiments.STRICT_OPTIONAL:
-                return AnyType()
+                return ANY_TYPE
             else:
                 return self.s
         elif isinstance(self.s, UninhabitedType):
             return self.s
         else:
-            return AnyType()
+            return ANY_TYPE
 
     def visit_error_type(self, t: ErrorType) -> Type:
         return t
@@ -275,7 +275,7 @@ class TypeMeetVisitor(TypeVisitor[Type]):
 
     def default(self, typ: Type) -> Type:
         if isinstance(typ, UnboundType):
-            return AnyType()
+            return ANY_TYPE
         elif isinstance(typ, Void) or isinstance(typ, ErrorType):
             return ErrorType()
         else:
