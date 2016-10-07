@@ -96,9 +96,31 @@ class Node(Context):
 
     line = -1
     column = -1
+ 
+    #_literal = LITERAL_NO
+    #_literal_hash = None  # type: Any
 
-    literal = LITERAL_NO
-    literal_hash = None  # type: Any
+    @property
+    def literal(self):
+        #assert literal(self) == self._literal
+        #return self._literal
+        return literal(self)
+
+    @literal.setter
+    def literal(self, value):
+        #self._literal = value
+        pass
+ 
+    @property
+    def literal_hash(self):
+        #assert literal_hash(self) == self._literal_hash
+        #return self._literal_hash
+        return literal_hash(self)
+
+    @literal_hash.setter
+    def literal_hash(self, value):
+        #self._literal_hash = value
+        pass
 
     def __str__(self) -> str:
         ans = self.accept(mypy.strconv.StrConv())
@@ -2324,3 +2346,76 @@ def get_flags(node: Node, names: List[str]) -> List[str]:
 def set_flags(node: Node, flags: List[str]) -> None:
     for name in flags:
         setattr(node, name, True)
+
+
+def literal_hash(e: Expression) -> Any:
+    if isinstance(e, (IntExpr, FloatExpr, ComplexExpr, StrExpr, BytesExpr, UnicodeExpr)):
+        return e.value
+
+    elif isinstance(e, StarExpr):
+        return ('Star', literal_hash(e.expr))
+
+    elif isinstance(e, NameExpr):
+        return ('Var', e.name)
+
+    elif isinstance(e, MemberExpr):
+        return ('Member', literal_hash(e.expr), e.name)
+
+    elif isinstance(e, IndexExpr):
+        if literal(e.index) == LITERAL_YES:
+            return ('Member', literal_hash(e.base), literal_hash(e.index))
+
+    elif isinstance(e, UnaryExpr):
+        return ('Unary', e.op, literal_hash(e.expr))
+
+    elif isinstance(e, OpExpr):
+        return ('Binary', e.op, literal_hash(e.left), literal_hash(e.right))
+
+    elif isinstance(e, ComparisonExpr):
+        return (('Comparison',) + tuple(e.operators) + 
+                tuple(o.literal_hash for o in e.operands))
+
+    elif isinstance(e, ListExpr):
+        if all(literal(x) == LITERAL_YES for x in e.items):
+            return ('List',) + tuple(literal_hash(x) for x in e.items)
+
+    elif isinstance(e, TupleExpr):
+        if all(literal(x) == LITERAL_YES for x in e.items):
+            return ('Tuple',) + tuple(literal_hash(x) for x in e.items)
+
+    elif isinstance(e, SetExpr):
+        if all(literal(x) == LITERAL_YES for x in e.items):
+            return ('Set',) + tuple(literal_hash(x) for x in e.items)
+
+    elif isinstance(e, DictExpr):
+        if all(a and literal(a) == literal(b) == LITERAL_YES for a, b in e.items):
+            rest = tuple((literal_hash(a), literal_hash(b)) for a, b in e.items)
+            return ('Dict',) + rest  # type: ignore
+
+    return None
+
+
+def literal(e: Expression) -> int:
+    if isinstance(e, ComparisonExpr):
+        return min(literal(o) for o in e.operands)
+
+    elif isinstance(e, OpExpr):
+        return min(literal(e.left), literal(e.right))
+
+    elif isinstance(e, (MemberExpr, UnaryExpr, StarExpr)):
+        return literal(e.expr)
+
+    elif isinstance(e, IndexExpr):
+        if literal(e.index) == LITERAL_YES:
+            return literal(e.base)
+
+    elif isinstance(e, NameExpr):
+        return LITERAL_TYPE
+
+    if isinstance(e, (IntExpr, FloatExpr, ComplexExpr, StrExpr, BytesExpr, UnicodeExpr)):
+        return LITERAL_YES
+
+    if literal_hash(e):
+        return LITERAL_YES
+
+    return LITERAL_NO
