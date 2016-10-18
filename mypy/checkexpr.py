@@ -157,11 +157,7 @@ class ExpressionChecker:
             return AnyType()
         else:
             # Look up local type of variable with type (inferred or explicit).
-            val = self.chk.binder.get(var)
-            if val is None:
-                return var.type
-            else:
-                return val
+            return var.type
 
     def visit_call_expr(self, e: CallExpr) -> Type:
         """Type check a call expression."""

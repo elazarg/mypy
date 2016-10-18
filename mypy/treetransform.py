@@ -90,7 +90,7 @@ class TransformVisitor(NodeVisitor[Node]):
             )
 
         arg = Argument(
-            self.visit_var(argument.variable),
+            self.translate_var(argument.variable),
             argument.type_annotation,
             argument.initializer,
             argument.kind,
@@ -207,11 +207,11 @@ class TransformVisitor(NodeVisitor[Node]):
         func = self.visit_func_def(node.func)
         func.line = node.func.line
         new = Decorator(func, self.expressions(node.decorators),
-                        self.visit_var(node.var))
+                        self.translate_var(node.var))
         new.is_overload = node.is_overload
         return new
 
-    def visit_var(self, node: Var) -> Var:
+    def translate_var(self, node: Var) -> Var:
         # Note that a Var must be transformed to a Var.
         if node in self.var_map:
             return self.var_map[node]
@@ -347,7 +347,7 @@ class TransformVisitor(NodeVisitor[Node]):
         member = MemberExpr(self.expr(node.expr),
                             node.name)
         if node.def_var:
-            member.def_var = self.visit_var(node.def_var)
+            member.def_var = self.translate_var(node.def_var)
         self.copy_ref(member, node)
         return member
 
@@ -356,7 +356,7 @@ class TransformVisitor(NodeVisitor[Node]):
         new.fullname = original.fullname
         target = original.node
         if isinstance(target, Var):
-            target = self.visit_var(target)
+            target = self.translate_var(target)
         elif isinstance(target, FuncDef):
             # Use a placeholder node for the function if it exists.
             target = self.func_placeholder_map.get(target, target)

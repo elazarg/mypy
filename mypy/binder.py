@@ -105,7 +105,7 @@ class ConditionalTypeBinder:
             self._add_dependencies(key)
         self._push(key, typ)
 
-    def get(self, expr: Union[Expression, Var]) -> Type:
+    def get(self, expr: Expression) -> Type:
         return self._get(expr.literal_hash)
 
     def cleanse(self, expr: Expression) -> None:

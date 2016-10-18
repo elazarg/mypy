@@ -55,9 +55,6 @@ class NodeVisitor(Generic[T]):
     def visit_decorator(self, o: 'mypy.nodes.Decorator') -> T:
         pass
 
-    def visit_var(self, o: 'mypy.nodes.Var') -> T:
-        pass
-
     # Statements
 
     def visit_block(self, o: 'mypy.nodes.Block') -> T:

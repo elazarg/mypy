@@ -331,7 +331,7 @@ class SemanticAnalyzer(NodeVisitor):
                     leading_type = self_type(self.type)
                 func.type = replace_implicit_first_type(sig, leading_type)
 
-    def is_conditional_func(self, previous: Node, new: FuncDef) -> bool:
+    def is_conditional_func(self, previous: SymbolNode, new: FuncDef) -> bool:
         """Does 'new' conditionally redefine 'previous'?
 
         We reject straight redefinitions of functions, as they are usually
@@ -631,7 +631,7 @@ class SemanticAnalyzer(NodeVisitor):
                     # check arbitrarily the first overload item. If the
                     # different items have a different abstract status, there
                     # should be an error reported elsewhere.
-                    func = node.items[0]  # type: Node
+                    func = node.items[0]  # type: SymbolNode
                 else:
                     func = node
                 if isinstance(func, Decorator):

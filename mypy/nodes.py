@@ -16,12 +16,30 @@ from mypy.util import dump_tagged, short_type
 
 class Context:
     """Base type for objects that are valid as error message locations."""
-    @abstractmethod
-    def get_line(self) -> int: pass
+    line = -1
+    column = -1
 
-    @abstractmethod
-    def get_column(self) -> int: pass
+    def set_line(self, target: Union[Token, 'Node', int], column: int = None) -> None:
+        """If target is a node or token, pull line (and column) information
+        into this node. If column is specified, this will override any column
+        information coming from a node/token.
+        """
+        if isinstance(target, int):
+            self.line = target
+        else:
+            self.line = target.line
+            self.column = target.column
 
+        if column is not None:
+            self.column = column
+
+    def get_line(self) -> int:
+        # TODO this should be just 'line'
+        return self.line
+
+    def get_column(self) -> int:
+        # TODO this should be just 'column'
+        return self.column
 
 if False:
     # break import cycle only needed for mypy
@@ -93,13 +111,10 @@ reverse_type_aliases = dict((name.replace('__builtins__', 'builtins'), alias)
 
 class Node(Context):
     """Common base class for all non-type parse tree nodes."""
+    # Argument is the only SettableContext that is not Node
 
-    line = -1
-    column = -1
-
-    # TODO: Move to Expression
-    literal = LITERAL_NO
-    literal_hash = None  # type: Any
+    @abstractmethod
+    def accept(self, visitor: NodeVisitor[T]) -> T: pass
 
     def __str__(self) -> str:
         ans = self.accept(mypy.strconv.StrConv())
@@ -107,30 +122,8 @@ class Node(Context):
             return repr(self)
         return ans
 
-    def set_line(self, target: Union[Token, 'Node', int], column: int = None) -> None:
-        """If target is a node or token, pull line (and column) information
-        into this node. If column is specified, this will override any column
-        information coming from a node/token.
-        """
-        if isinstance(target, int):
-            self.line = target
-        else:
-            self.line = target.line
-            self.column = target.column
-
-        if column is not None:
-            self.column = column
-
-    def get_line(self) -> int:
-        # TODO this should be just 'line'
-        return self.line
-
-    def get_column(self) -> int:
-        # TODO this should be just 'column'
-        return self.column
-
-    def accept(self, visitor: NodeVisitor[T]) -> T:
-        raise RuntimeError('Not implemented')
+    literal = LITERAL_NO
+    literal_hash = None  # type: Any
 
 
 class Statement(Node):
@@ -140,13 +133,14 @@ class Statement(Node):
 class Expression(Node):
     """An expression node."""
 
+
 # TODO:
 # Lvalue = Union['NameExpr', 'MemberExpr', 'IndexExpr', 'SuperExpr', 'StarExpr'
 #                'TupleExpr', 'ListExpr']; see #1783.
 Lvalue = Expression
 
 
-class SymbolNode(Node):
+class SymbolNode(Context):
     # Nodes that can be stored in a symbol table.
 
     # TODO do not use methods for these
@@ -171,7 +165,7 @@ class SymbolNode(Node):
         raise NotImplementedError('unexpected .class {}'.format(classname))
 
 
-class MypyFile(SymbolNode):
+class MypyFile(Node, SymbolNode):
     """The abstract syntax tree of a single source file."""
 
     # Module name ('__main__' for initial file)
@@ -360,7 +354,7 @@ class OverloadedFuncDef(FuncBase, SymbolNode, Statement):
         return res
 
 
-class Argument(Node):
+class Argument(Context):
     """A single argument in a FuncItem."""
 
     variable = None  # type: Var
@@ -632,9 +626,6 @@ class Var(SymbolNode):
     def fullname(self) -> str:
         return self._fullname
 
-    def accept(self, visitor: NodeVisitor[T]) -> T:
-        return visitor.visit_var(self)
-
     def serialize(self) -> JsonDict:
         # TODO: Leave default values out?
         # NOTE: Sometimes self.is_ready is False here, but we don't care.
@@ -655,6 +646,9 @@ class Var(SymbolNode):
         v._fullname = data['fullname']
         set_flags(v, data['flags'])
         return v
+
+    def __str__(self) -> str:
+        return mypy.strconv.StrConv().visit_var(self)
 
 
 class ClassDef(Statement):
@@ -2317,10 +2311,10 @@ def merge(seqs: List[List[TypeInfo]]) -> List[TypeInfo]:
                 del s[0]
 
 
-def get_flags(node: Node, names: List[str]) -> List[str]:
+def get_flags(node: Context, names: List[str]) -> List[str]:
     return [name for name in names if getattr(node, name)]
 
 
-def set_flags(node: Node, flags: List[str]) -> None:
+def set_flags(node: Context, flags: List[str]) -> None:
     for name in flags:
         setattr(node, name, True)

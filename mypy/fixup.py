@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional, cast
 
 from mypy.nodes import (MypyFile, SymbolNode, SymbolTable, SymbolTableNode,
                         TypeInfo, FuncDef, OverloadedFuncDef, Decorator, Var,
-                        TypeVarExpr, ClassDef,
+                        TypeVarExpr, ClassDef, Node,
                         LDEF, MDEF, GDEF, MODULE_REF)
 from mypy.types import (CallableType, EllipsisType, Instance, Overloaded, TupleType,
                         TypeList, TypeVarType, UnboundType, UnionType, TypeVisitor,
@@ -80,8 +80,10 @@ class NodeFixer(NodeVisitor[None]):
                 if isinstance(value.node, TypeInfo):
                     # TypeInfo has no accept().  TODO: Add it?
                     self.visit_type_info(value.node)
-                elif value.node is not None:
+                elif isinstance(value.node, Node):
                     value.node.accept(self)
+                elif isinstance(value.node, Var):
+                    self.fix_var(value.node)
                 if value.type_override is not None:
                     value.type_override.accept(self.type_fixer)
 
@@ -104,8 +106,6 @@ class NodeFixer(NodeVisitor[None]):
             d.var.info = self.current_info
         if d.func:
             d.func.accept(self)
-        if d.var:
-            d.var.accept(self)
         for node in d.decorators:
             node.accept(self)
 
@@ -120,7 +120,7 @@ class NodeFixer(NodeVisitor[None]):
             value.accept(self.type_fixer)
         tv.upper_bound.accept(self.type_fixer)
 
-    def visit_var(self, v: Var) -> None:
+    def fix_var(self, v: Var) -> None:
         if self.current_info is not None:
             v.info = self.current_info
         if v.type is not None:
