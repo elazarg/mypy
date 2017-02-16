@@ -1879,8 +1879,8 @@ class TypeInfo(SymbolNode):
     # value always to refers to this class.
     mro = None  # type: List[TypeInfo]
 
-    declared_metaclass = None  # type: Optional[mypy.types.Instance]
-    metaclass_type = None  # type: mypy.types.Instance
+    declared_metaclass = None  # type: Optional[TypeInfo]
+    metaclass_type = None  # type: 'Optional[mypy.types.Instance]'
 
     subtypes = None  # type: Set[TypeInfo] # Direct subclasses encountered so far
     names = None  # type: SymbolTable      # Names defined directly in this type
@@ -2011,17 +2011,17 @@ class TypeInfo(SymbolNode):
         self.mro = mro
         self.is_enum = self._calculate_is_enum()
 
-    def calculate_metaclass_type(self) -> 'Optional[mypy.types.Instance]':
+    def calculate_metaclass_type(self) -> 'Optional[TypeInfo]':
         declared = self.declared_metaclass
-        if declared is not None and not declared.type.has_base('builtins.type'):
+        if declared is not None and not declared.has_base('builtins.type'):
             return declared
         if self._fullname == 'builtins.type':
-            return mypy.types.Instance(self, [])
-        candidates = [s.declared_metaclass for s in self.mro if s.declared_metaclass is not None]
+            return self
+        candidates = [s.declared_metaclass for s in self.mro
+                      if s.declared_metaclass is not None
+                      and s.declared_metaclass.mro is not None]
         for c in candidates:
-            if c.type.mro is None:
-                continue
-            if all(other.type in c.type.mro for other in candidates):
+            if all(other in c.mro for other in candidates):
                 return c
         return None
 
@@ -2107,7 +2107,7 @@ class TypeInfo(SymbolNode):
         ti._promote = (None if data['_promote'] is None
                        else mypy.types.Type.deserialize(data['_promote']))
         ti.declared_metaclass = (None if data['declared_metaclass'] is None
-                                 else mypy.types.Instance.deserialize(data['declared_metaclass']))
+                                 else TypeInfo.deserialize(data['declared_metaclass']))
         # NOTE: ti.metaclass_type and ti.mro will be set in the fixup phase.
         ti.tuple_type = (None if data['tuple_type'] is None
                          else mypy.types.TupleType.deserialize(data['tuple_type']))

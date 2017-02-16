@@ -427,10 +427,10 @@ class Instance(Type):
     erased = False  # True if result of type variable substitution
     invalid = False  # True if recovered after incorrect number of type arguments error
 
-    def __init__(self, typ: mypy.nodes.TypeInfo, args: List[Type],
+    def __init__(self, typ: mypy.nodes.TypeInfo, args: List[Type] = None,
                  line: int = -1, column: int = -1, erased: bool = False) -> None:
         self.type = typ
-        self.args = args
+        self.args = args or []
         self.erased = erased
         super().__init__(line, column)
 
