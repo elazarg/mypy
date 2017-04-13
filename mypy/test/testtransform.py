@@ -27,11 +27,7 @@ transform_files = ['semanal-basic.test',
 
 
 class TransformSuite(DataSuite):
-    def __init__(self, *, update_data: bool = False) -> None:
-        self.update_data = update_data
-
     def run_case(self, testcase: DataDrivenTestCase) -> None:
-        assert False
         try:
             src = '\n'.join(testcase.input)
             options = Options()

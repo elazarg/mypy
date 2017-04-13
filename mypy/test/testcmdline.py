@@ -9,12 +9,12 @@ import re
 import subprocess
 import sys
 
-from typing import Tuple, List, Dict, Set
+from typing import List
 
-from mypy.myunit import Suite, SkipTestCaseException, AssertionFailure
+from mypy.myunit import AssertionFailure
 from mypy.test.config import test_data_prefix, test_temp_dir
 from mypy.test.data import fix_cobertura_filename
-from mypy.test.data import parse_test_cases, DataDrivenTestCase
+from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
 from mypy.test.helpers import assert_string_arrays_equal
 from mypy.version import __version__, base_version
 
@@ -25,59 +25,58 @@ python3_path = sys.executable
 cmdline_files = ['cmdline.test']
 
 
-class PythonEvaluationSuite(Suite):
-
-    def cases(self) -> List[DataDrivenTestCase]:
+class PythonEvaluationSuite(DataSuite):
+    @classmethod
+    def cases(cls) -> List[DataDrivenTestCase]:
         c = []  # type: List[DataDrivenTestCase]
         for f in cmdline_files:
             c += parse_test_cases(os.path.join(test_data_prefix, f),
-                                  test_python_evaluation,
+                                  None,
                                   base_path=test_temp_dir,
                                   optional_out=True,
                                   native_sep=True)
         return c
 
-
-def test_python_evaluation(testcase: DataDrivenTestCase) -> None:
-    # Write the program to a file.
-    program = '_program.py'
-    program_path = os.path.join(test_temp_dir, program)
-    with open(program_path, 'w') as file:
-        for s in testcase.input:
-            file.write('{}\n'.format(s))
-    args = parse_args(testcase.input[0])
-    args.append('--show-traceback')
-    # Type check the program.
-    fixed = [python3_path,
-             os.path.join(testcase.old_cwd, 'scripts', 'mypy')]
-    process = subprocess.Popen(fixed + args,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT,
-                               cwd=test_temp_dir)
-    outb = process.stdout.read()
-    # Split output into lines.
-    out = [s.rstrip('\n\r') for s in str(outb, 'utf8').splitlines()]
-    # Remove temp file.
-    os.remove(program_path)
-    # Compare actual output to expected.
-    if testcase.output_files:
-        for path, expected_content in testcase.output_files:
-            if not os.path.exists(path):
-                raise AssertionFailure(
-                    'Expected file {} was not produced by test case'.format(path))
-            with open(path, 'r') as output_file:
-                actual_output_content = output_file.read().splitlines()
-            normalized_output = normalize_file_output(actual_output_content,
-                                                      os.path.abspath(test_temp_dir))
-            if testcase.native_sep and os.path.sep == '\\':
-                normalized_output = [fix_cobertura_filename(line) for line in normalized_output]
-            assert_string_arrays_equal(expected_content.splitlines(), normalized_output,
-                                       'Output file {} did not match its expected output'.format(
-                                           path))
-    else:
-        assert_string_arrays_equal(testcase.output, out,
-                                   'Invalid output ({}, line {})'.format(
-                                       testcase.file, testcase.line))
+    def run_case(self, testcase: DataDrivenTestCase) -> None:
+        # Write the program to a file.
+        program = '_program.py'
+        program_path = os.path.join(test_temp_dir, program)
+        with open(program_path, 'w') as file:
+            for s in testcase.input:
+                file.write('{}\n'.format(s))
+        args = parse_args(testcase.input[0])
+        args.append('--show-traceback')
+        # Type check the program.
+        fixed = [python3_path,
+                 os.path.join(testcase.old_cwd, 'scripts', 'mypy')]
+        process = subprocess.Popen(fixed + args,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT,
+                                   cwd=test_temp_dir)
+        outb = process.stdout.read()
+        # Split output into lines.
+        out = [s.rstrip('\n\r') for s in str(outb, 'utf8').splitlines()]
+        # Remove temp file.
+        os.remove(program_path)
+        # Compare actual output to expected.
+        if testcase.output_files:
+            for path, expected_content in testcase.output_files:
+                if not os.path.exists(path):
+                    raise AssertionFailure(
+                        'Expected file {} was not produced by test case'.format(path))
+                with open(path, 'r') as output_file:
+                    actual_output_content = output_file.read().splitlines()
+                normalized_output = normalize_file_output(actual_output_content,
+                                                          os.path.abspath(test_temp_dir))
+                if testcase.native_sep and os.path.sep == '\\':
+                    normalized_output = [fix_cobertura_filename(line) for line in normalized_output]
+                assert_string_arrays_equal(expected_content.splitlines(), normalized_output,
+                                           'Output file {} did not match its expected output'.format(
+                                               path))
+        else:
+            assert_string_arrays_equal(testcase.output, out,
+                                       'Invalid output ({}, line {})'.format(
+                                           testcase.file, testcase.line))
 
 
 def parse_args(line: str) -> List[str]:
