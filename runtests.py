@@ -208,21 +208,7 @@ def add_imports(driver: Driver) -> None:
             driver.add_python_string('import %s' % mod, 'import %s' % mod)
 
 
-PYTEST_FILES = [os.path.join('mypy', 'test', '{}.py'.format(name)) for name in [
-    'testcheck',
-    'testextensions',
-    'testdeps',
-    'testdiff',
-    'testfinegrained',
-    'testmerge',
-    'testtransform',
-    'testsemanal',
-    'testcmdline',
-    'testparse',
-    'testpythoneval',
-    'testtypegen',
-    'teststubgen',  # FIX this is not completely migrated and parts of it does not run yet
-]]
+PYTEST_FILES = find_files('mypy', prefix='test', suffix='.py')
 
 
 def add_pytest(driver: Driver) -> None:
