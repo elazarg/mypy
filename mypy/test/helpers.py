@@ -1,12 +1,11 @@
 import sys
 import re
 import os
+import tempfile
 
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 
 from mypy import defaults
-from mypy.myunit import AssertionFailure
-from mypy.test.data import DataDrivenTestCase
 
 
 # AssertStringArraysEqual displays special line alignment helper messages if
@@ -85,34 +84,27 @@ def assert_string_arrays_equal(expected: List[str], actual: List[str],
         raise AssertionFailure(msg)
 
 
-def update_testcase_output(testcase: DataDrivenTestCase, output: List[str]) -> None:
-    testcase_path = os.path.join(testcase.old_cwd, testcase.file)
-    with open(testcase_path) as f:
-        data_lines = f.read().splitlines()
-    test = '\n'.join(data_lines[testcase.line:testcase.lastline])
+class ProtoTestCase:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.prefix = typename(type(self)) + '.'
+        self.old_cwd = None  # type: str
+        self.tmpdir = None  # type: tempfile.TemporaryDirectory
 
-    mapping = {}  # type: Dict[str, List[str]]
-    for old, new in zip(testcase.output, output):
-        PREFIX = 'error:'
-        ind = old.find(PREFIX)
-        if ind != -1 and old[:ind] == new[:ind]:
-            old, new = old[ind + len(PREFIX):], new[ind + len(PREFIX):]
-        mapping.setdefault(old, []).append(new)
+    def set_up(self) -> None:
+        self.old_cwd = os.getcwd()
+        self.tmpdir = tempfile.TemporaryDirectory(
+            prefix='mypy-test-',
+            dir=os.path.abspath('tmp-test-dirs')
+        )
+        os.chdir(self.tmpdir.name)
+        os.mkdir('tmp')
 
-    for old in mapping:
-        if test.count(old) == len(mapping[old]):
-            betweens = test.split(old)
-
-            # Interleave betweens and mapping[old]
-            from itertools import chain
-            interleaved = [betweens[0]] + \
-                list(chain.from_iterable(zip(mapping[old], betweens[1:])))
-            test = ''.join(interleaved)
-
-    data_lines[testcase.line:testcase.lastline] = [test]
-    data = '\n'.join(data_lines)
-    with open(testcase_path, 'w') as f:
-        print(data, file=f)
+    def tear_down(self) -> None:
+        os.chdir(self.old_cwd)
+        self.tmpdir.cleanup()
+        self.old_cwd = None
+        self.tmpdir = None
 
 
 def show_align_message(s1: str, s2: str) -> None:
@@ -283,3 +275,98 @@ def normalize_error_messages(messages: List[str]) -> List[str]:
     for m in messages:
         a.append(m.replace(os.sep, '/'))
     return a
+
+
+class SkipTestCaseException(Exception):
+    """Exception used to signal skipped test cases."""
+    pass
+
+
+class AssertionFailure(Exception):
+    """Exception used to signal failed test cases."""
+    def __init__(self, s: str = None) -> None:
+        if s:
+            super().__init__(s)
+        else:
+            super().__init__()
+
+
+def assert_true(b: bool, msg: str = None) -> None:
+    if not b:
+        raise AssertionFailure(msg)
+
+
+def assert_false(b: bool, msg: str = None) -> None:
+    if b:
+        raise AssertionFailure(msg)
+
+
+def good_repr(obj: object) -> str:
+    if isinstance(obj, str):
+        if obj.count('\n') > 1:
+            bits = ["'''\\"]
+            for line in obj.split('\n'):
+                # force repr to use ' not ", then cut it off
+                bits.append(repr('"' + line)[2:-1])
+            bits[-1] += "'''"
+            return '\n'.join(bits)
+    return repr(obj)
+
+
+def assert_equal(a: object, b: object, fmt: str = '{} != {}') -> None:
+    if a != b:
+        raise AssertionFailure(fmt.format(good_repr(a), good_repr(b)))
+
+
+def assert_not_equal(a: object, b: object, fmt: str = '{} == {}') -> None:
+    if a == b:
+        raise AssertionFailure(fmt.format(good_repr(a), good_repr(b)))
+
+
+def assert_raises(typ: type, *rest: Any) -> None:
+    """Usage: assert_raises(exception class[, message], function[, args])
+
+    Call function with the given arguments and expect an exception of the given
+    type.
+
+    TODO use overloads for better type checking
+    """
+    # Parse arguments.
+    msg = None  # type: str
+    if isinstance(rest[0], str) or rest[0] is None:
+        msg = rest[0]
+        rest = rest[1:]
+    f = rest[0]
+    args = []  # type: List[Any]
+    if len(rest) > 1:
+        args = rest[1]
+        assert len(rest) <= 2
+
+    # Perform call and verify the exception.
+    try:
+        f(*args)
+    except BaseException as e:
+        if isinstance(e, KeyboardInterrupt):
+            raise
+        assert_type(typ, e)
+        if msg:
+            assert_equal(e.args[0], msg, 'Invalid message {}, expected {}')
+    else:
+        raise AssertionFailure('No exception raised')
+
+
+def assert_type(typ: type, value: object) -> None:
+    if type(value) != typ:
+        raise AssertionFailure('Invalid type {}, expected {}'.format(
+            typename(type(value)), typename(typ)))
+
+
+def typename(t: type) -> str:
+    if '.' in str(t):
+        return str(t).split('.')[-1].rstrip("'>")
+    else:
+        return str(t)[8:-2]
+
+
+def fail() -> None:
+    raise AssertionFailure()

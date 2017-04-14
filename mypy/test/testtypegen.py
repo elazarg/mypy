@@ -7,9 +7,8 @@ from typing import Set, List
 
 from mypy import build
 from mypy.build import BuildSource
-from mypy.myunit import Suite
 from mypy.test import config
-from mypy.test.data import parse_test_cases, DataDrivenTestCase
+from mypy.test.data import DataSuite, parse_test_cases, DataDrivenTestCase
 from mypy.test.helpers import assert_string_arrays_equal
 from mypy.util import short_type
 from mypy.nodes import (
@@ -19,19 +18,20 @@ from mypy.traverser import TraverserVisitor
 from mypy.errors import CompileError
 from mypy.options import Options
 
+# List of files that contain test case descriptions.
+files = ['typexport-basic.test']
 
-class TypeExportSuite(Suite):
-    # List of files that contain test case descriptions.
-    files = ['typexport-basic.test']
 
-    def cases(self) -> List[DataDrivenTestCase]:
+class TypeExportSuite(DataSuite):
+    @classmethod
+    def cases(cls) -> List[DataDrivenTestCase]:
         c = []  # type: List[DataDrivenTestCase]
-        for f in self.files:
+        for f in files:
             c += parse_test_cases(os.path.join(config.test_data_prefix, f),
-                                  self.run_test, config.test_temp_dir)
+                                  None, config.test_temp_dir)
         return c
 
-    def run_test(self, testcase: DataDrivenTestCase) -> None:
+    def run_case(self, testcase: DataDrivenTestCase) -> None:
         try:
             line = testcase.input[0]
             mask = ''

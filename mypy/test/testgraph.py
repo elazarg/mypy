@@ -2,7 +2,8 @@
 
 from typing import AbstractSet, Dict, Set, List
 
-from mypy.myunit import Suite, assert_equal
+from mypy.myunit import Suite
+from mypy.test.helpers import assert_equal
 from mypy.build import BuildManager, State, BuildSourceSet
 from mypy.build import topsort, strongly_connected_components, sorted_components, order_ascc
 from mypy.version import __version__

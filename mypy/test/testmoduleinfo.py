@@ -1,7 +1,6 @@
 from mypy import moduleinfo
-from mypy.myunit import (
-    Suite, assert_equal, assert_true, assert_false
-)
+from mypy.myunit import Suite
+from mypy.test.helpers import assert_true, assert_false
 
 
 class ModuleInfoSuite(Suite):

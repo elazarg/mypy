@@ -2,8 +2,9 @@
 
 from typing import List, Tuple
 
-from mypy.myunit import (
-    Suite, assert_equal, assert_true, assert_false, assert_type
+from mypy.myunit import Suite
+from mypy.test.helpers import (
+    assert_equal, assert_true, assert_false, assert_type
 )
 from mypy.erasetype import erase_type
 from mypy.expandtype import expand_type

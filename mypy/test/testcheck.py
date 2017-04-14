@@ -3,21 +3,17 @@
 import os.path
 import re
 import shutil
-import sys
-import time
-import typed_ast
 
 from typing import Dict, List, Optional, Set, Tuple
 
 from mypy import build, defaults
-from mypy.main import parse_version, process_options
+from mypy.main import process_options
 from mypy.build import BuildSource, find_module_clear_caches
-from mypy.myunit import AssertionFailure
 from mypy.test.config import test_temp_dir, test_data_prefix
 from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
 from mypy.test.helpers import (
     assert_string_arrays_equal, normalize_error_messages,
-    testcase_pyversion, update_testcase_output,
+    testcase_pyversion, AssertionFailure
 )
 from mypy.errors import CompileError
 from mypy.options import Options
@@ -93,7 +89,7 @@ class TypeCheckSuite(DataSuite):
             # Incremental tests are run once with a cold cache, once with a warm cache.
             # Expect success on first run, errors from testcase.output (if any) on second run.
             # We briefly sleep to make sure file timestamps are distinct.
-            self.clear_cache()
+            clear_cache()
             self.run_case_once(testcase, 1)
             self.run_case_once(testcase, 2)
         elif optional:
@@ -109,16 +105,10 @@ class TypeCheckSuite(DataSuite):
             finally:
                 experiments.STRICT_OPTIONAL = old_strict_optional
 
-    def clear_cache(self) -> None:
-        dn = defaults.CACHE_DIR
-
-        if os.path.exists(dn):
-            shutil.rmtree(dn)
-
     def run_case_once(self, testcase: DataDrivenTestCase, incremental: int = 0) -> None:
         find_module_clear_caches()
         original_program_text = '\n'.join(testcase.input)
-        module_data = self.parse_module(original_program_text, incremental)
+        module_data = parse_module(original_program_text, incremental)
 
         if incremental:
             if incremental == 1:
@@ -144,7 +134,7 @@ class TypeCheckSuite(DataSuite):
                             os.utime(target, times=(new_time, new_time))
 
         # Parse options after moving files (in case mypy.ini is being moved).
-        options = self.parse_options(original_program_text, testcase, incremental)
+        options = parse_options(original_program_text, testcase, incremental)
         options.use_builtins_fixtures = True
         options.show_traceback = True
         if 'optional' in testcase.file:
@@ -181,145 +171,159 @@ class TypeCheckSuite(DataSuite):
             raise AssertionError()
 
         if output != a and self.update_data:
-            update_testcase_output(testcase, a)
+            testcase.update_testcase_output(a)
         assert_string_arrays_equal(output, a, msg.format(testcase.file, testcase.line))
 
         if incremental and res:
             if options.follow_imports == 'normal' and testcase.output is None:
-                self.verify_cache(module_data, a, res.manager)
+                verify_cache(module_data, a, res.manager)
             if incremental == 2:
-                self.check_module_equivalence(
+                check_module_equivalence(
                     'rechecked',
                     testcase.expected_rechecked_modules,
                     res.manager.rechecked_modules)
-                self.check_module_equivalence(
+                check_module_equivalence(
                     'stale',
                     testcase.expected_stale_modules,
                     res.manager.stale_modules)
 
-    def check_module_equivalence(self, name: str,
-                                 expected: Optional[Set[str]], actual: Set[str]) -> None:
-        if expected is not None:
-            assert_string_arrays_equal(
-                list(sorted(expected)),
-                list(sorted(actual.difference({"__main__"}))),
-                'Set of {} modules does not match expected set'.format(name))
 
-    def verify_cache(self, module_data: List[Tuple[str, str, str]], a: List[str],
-                     manager: build.BuildManager) -> None:
-        # There should be valid cache metadata for each module except
-        # those in error_paths; for those there should not be.
-        #
-        # NOTE: When A imports B and there's an error in B, the cache
-        # data for B is invalidated, but the cache data for A remains.
-        # However build.process_graphs() will ignore A's cache data.
-        #
-        # Also note that when A imports B, and there's an error in A
-        # _due to a valid change in B_, the cache data for B will be
-        # invalidated and updated, but the old cache data for A will
-        # remain unchanged. As before, build.process_graphs() will
-        # ignore A's (old) cache data.
-        error_paths = self.find_error_paths(a)
-        modules = self.find_module_files()
-        modules.update({module_name: path for module_name, path, text in module_data})
-        missing_paths = self.find_missing_cache_files(modules, manager)
-        if not missing_paths.issubset(error_paths):
-            raise AssertionFailure("cache data discrepancy %s != %s" %
-                                   (missing_paths, error_paths))
+def clear_cache() -> None:
+    dn = defaults.CACHE_DIR
 
-    def find_error_paths(self, a: List[str]) -> Set[str]:
-        hits = set()
-        for line in a:
-            m = re.match(r'([^\s:]+):\d+: error:', line)
-            if m:
-                p = m.group(1).replace('/', os.path.sep)
-                hits.add(p)
-        return hits
+    if os.path.exists(dn):
+        shutil.rmtree(dn)
 
-    def find_module_files(self) -> Dict[str, str]:
-        modules = {}
-        for dn, dirs, files in os.walk(test_temp_dir):
-            dnparts = dn.split(os.sep)
-            assert dnparts[0] == test_temp_dir
-            del dnparts[0]
-            for file in files:
-                if file.endswith('.py'):
-                    if file == "__init__.py":
-                        # If the file path is `a/b/__init__.py`, exclude the file name
-                        # and make sure the module id is just `a.b`, not `a.b.__init__`.
-                        id = '.'.join(dnparts)
-                    else:
-                        base, ext = os.path.splitext(file)
-                        id = '.'.join(dnparts + [base])
-                    modules[id] = os.path.join(dn, file)
-        return modules
 
-    def find_missing_cache_files(self, modules: Dict[str, str],
-                                 manager: build.BuildManager) -> Set[str]:
-        missing = {}
-        for id, path in modules.items():
-            meta = build.find_cache_meta(id, path, manager)
-            if not build.is_meta_fresh(meta, id, path, manager):
-                missing[id] = path
-        return set(missing.values())
+def check_module_equivalence(name: str,
+                             expected: Optional[Set[str]], actual: Set[str]) -> None:
+    if expected is not None:
+        assert_string_arrays_equal(
+            list(sorted(expected)),
+            list(sorted(actual.difference({"__main__"}))),
+            'Set of {} modules does not match expected set'.format(name))
 
-    def parse_module(self, program_text: str, incremental: int = 0) -> List[Tuple[str, str, str]]:
-        """Return the module and program names for a test case.
 
-        Normally, the unit tests will parse the default ('__main__')
-        module and follow all the imports listed there. You can override
-        this behavior and instruct the tests to check multiple modules
-        by using a comment like this in the test case input:
+def verify_cache(module_data: List[Tuple[str, str, str]], a: List[str],
+                 manager: build.BuildManager) -> None:
+    # There should be valid cache metadata for each module except
+    # those in error_paths; for those there should not be.
+    #
+    # NOTE: When A imports B and there's an error in B, the cache
+    # data for B is invalidated, but the cache data for A remains.
+    # However build.process_graphs() will ignore A's cache data.
+    #
+    # Also note that when A imports B, and there's an error in A
+    # _due to a valid change in B_, the cache data for B will be
+    # invalidated and updated, but the old cache data for A will
+    # remain unchanged. As before, build.process_graphs() will
+    # ignore A's (old) cache data.
+    error_paths = find_error_paths(a)
+    modules = find_module_files()
+    modules.update({module_name: path for module_name, path, text in module_data})
+    missing_paths = find_missing_cache_files(modules, manager)
+    if not missing_paths.issubset(error_paths):
+        raise AssertionFailure("cache data discrepancy %s != %s" %
+                               (missing_paths, error_paths))
 
-          # cmd: mypy -m foo.bar foo.baz
 
-        Return a list of tuples (module name, file name, program text).
-        """
-        m = re.search('# cmd: mypy -m ([a-zA-Z0-9_. ]+)$', program_text, flags=re.MULTILINE)
-        m2 = re.search('# cmd2: mypy -m ([a-zA-Z0-9_. ]+)$', program_text, flags=re.MULTILINE)
-        if m2 is not None and incremental == 2:
-            # Optionally return a different command if in the second
-            # stage of incremental mode, otherwise default to reusing
-            # the original cmd.
-            m = m2
-
+def find_error_paths(a: List[str]) -> Set[str]:
+    hits = set()
+    for line in a:
+        m = re.match(r'([^\s:]+):\d+: error:', line)
         if m:
-            # The test case wants to use a non-default main
-            # module. Look up the module and give it as the thing to
-            # analyze.
-            module_names = m.group(1)
-            out = []
-            for module_name in module_names.split(' '):
-                path = build.find_module(module_name, [test_temp_dir])
-                with open(path) as f:
-                    program_text = f.read()
-                out.append((module_name, path, program_text))
-            return out
-        else:
-            return [('__main__', 'main', program_text)]
+            p = m.group(1).replace('/', os.path.sep)
+            hits.add(p)
+    return hits
 
-    def parse_options(self, program_text: str, testcase: DataDrivenTestCase,
-                      incremental: int) -> Options:
+
+def find_module_files() -> Dict[str, str]:
+    modules = {}
+    for dn, dirs, files in os.walk(test_temp_dir):
+        dnparts = dn.split(os.sep)
+        assert dnparts[0] == test_temp_dir
+        del dnparts[0]
+        for file in files:
+            if file.endswith('.py'):
+                if file == "__init__.py":
+                    # If the file path is `a/b/__init__.py`, exclude the file name
+                    # and make sure the module id is just `a.b`, not `a.b.__init__`.
+                    id = '.'.join(dnparts)
+                else:
+                    base, ext = os.path.splitext(file)
+                    id = '.'.join(dnparts + [base])
+                modules[id] = os.path.join(dn, file)
+    return modules
+
+
+def find_missing_cache_files(modules: Dict[str, str],
+                             manager: build.BuildManager) -> Set[str]:
+    missing = {}
+    for id, path in modules.items():
+        meta = build.find_cache_meta(id, path, manager)
+        if not build.is_meta_fresh(meta, id, path, manager):
+            missing[id] = path
+    return set(missing.values())
+
+
+def parse_module(program_text: str, incremental: int = 0) -> List[Tuple[str, str, str]]:
+    """Return the module and program names for a test case.
+
+    Normally, the unit tests will parse the default ('__main__')
+    module and follow all the imports listed there. You can override
+    this behavior and instruct the tests to check multiple modules
+    by using a comment like this in the test case input:
+
+      # cmd: mypy -m foo.bar foo.baz
+
+    Return a list of tuples (module name, file name, program text).
+    """
+    m = re.search('# cmd: mypy -m ([a-zA-Z0-9_. ]+)$', program_text, flags=re.MULTILINE)
+    m2 = re.search('# cmd2: mypy -m ([a-zA-Z0-9_. ]+)$', program_text, flags=re.MULTILINE)
+    if m2 is not None and incremental == 2:
+        # Optionally return a different command if in the second
+        # stage of incremental mode, otherwise default to reusing
+        # the original cmd.
+        m = m2
+
+    if m:
+        # The test case wants to use a non-default main
+        # module. Look up the module and give it as the thing to
+        # analyze.
+        module_names = m.group(1)
+        out = []
+        for module_name in module_names.split(' '):
+            path = build.find_module(module_name, [test_temp_dir])
+            with open(path) as f:
+                program_text = f.read()
+            out.append((module_name, path, program_text))
+        return out
+    else:
+        return [('__main__', 'main', program_text)]
+
+
+def parse_options(program_text: str, testcase: DataDrivenTestCase,
+                  incremental: int) -> Options:
+    options = Options()
+    flags = re.search('# flags: (.*)$', program_text, flags=re.MULTILINE)
+    if incremental == 2:
+        flags2 = re.search('# flags2: (.*)$', program_text, flags=re.MULTILINE)
+        if flags2:
+            flags = flags2
+
+    flag_list = None
+    if flags:
+        flag_list = flags.group(1).split()
+        targets, options = process_options(flag_list, require_targets=False)
+        if targets:
+            # TODO: support specifying targets via the flags pragma
+            raise RuntimeError('Specifying targets via the flags pragma is not supported.')
+    else:
         options = Options()
-        flags = re.search('# flags: (.*)$', program_text, flags=re.MULTILINE)
-        if incremental == 2:
-            flags2 = re.search('# flags2: (.*)$', program_text, flags=re.MULTILINE)
-            if flags2:
-                flags = flags2
 
-        flag_list = None
-        if flags:
-            flag_list = flags.group(1).split()
-            targets, options = process_options(flag_list, require_targets=False)
-            if targets:
-                # TODO: support specifying targets via the flags pragma
-                raise RuntimeError('Specifying targets via the flags pragma is not supported.')
-        else:
-            options = Options()
+    # Allow custom python version to override testcase_pyversion
+    if (not flag_list or
+            all(flag not in flag_list for flag in ['--python-version', '-2', '--py2'])):
+        options.python_version = testcase_pyversion(testcase.file, testcase.name)
 
-        # Allow custom python version to override testcase_pyversion
-        if (not flag_list or
-                all(flag not in flag_list for flag in ['--python-version', '-2', '--py2'])):
-            options.python_version = testcase_pyversion(testcase.file, testcase.name)
-
-        return options
+    return options

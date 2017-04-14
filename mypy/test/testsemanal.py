@@ -55,7 +55,7 @@ class SemAnalSuite(DataSuite):
 
     def run_case(self, testcase: DataDrivenTestCase) -> None:
         """Perform a semantic analysis test case.
-    
+
         The testcase argument contains a description of the test case
         (inputs and output).
         """

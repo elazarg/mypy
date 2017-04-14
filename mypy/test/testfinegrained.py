@@ -14,19 +14,12 @@ from typing import List, Tuple, Dict
 
 from mypy import build
 from mypy.build import BuildManager, BuildSource, Graph
-from mypy.errors import Errors, CompileError
-from mypy.nodes import Node, MypyFile, SymbolTable, SymbolTableNode, TypeInfo, Expression
+from mypy.errors import CompileError
 from mypy.options import Options
-from mypy.server.astmerge import merge_asts
-from mypy.server.subexpr import get_subexpressions
 from mypy.server.update import FineGrainedBuildManager
-from mypy.strconv import StrConv, indent
 from mypy.test.config import test_temp_dir, test_data_prefix
 from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
 from mypy.test.helpers import assert_string_arrays_equal
-from mypy.test.testtypegen import ignore_node
-from mypy.types import TypeStrVisitor, Type
-from mypy.util import short_type
 
 
 files = [

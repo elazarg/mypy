@@ -2,15 +2,16 @@
 
 import os.path
 import os
-import posixpath
-import re
 from os import remove, rmdir
+import posixpath
 import shutil
 
-import pytest  # type: ignore  # no pytest in typeshed
-from typing import Callable, List, Tuple, Set, Optional, Iterator, Any
+import re
+from typing import Callable, List, Tuple, Set, Optional, Dict, Iterator, Any, Iterable
+from abc import abstractmethod
 
-from mypy.myunit import TestCase, SkipTestCaseException
+from mypy.test.helpers import ProtoTestCase, SkipTestCaseException
+import pytest  # type: ignore  # no pytest in typeshed
 
 
 def parse_test_cases(
@@ -23,10 +24,6 @@ def parse_test_cases(
     """Parse a file with test case descriptions.
 
     Return an array of test cases.
-
-    NB this function and DataDrivenTestCase are shared between the
-    myunit and pytest codepaths -- if something looks redundant,
-    that's likely the reason.
     """
     if native_sep:
         join = os.path.join
@@ -138,7 +135,7 @@ def parse_test_cases(
     return out
 
 
-class DataDrivenTestCase(TestCase):
+class DataDrivenTestCase(ProtoTestCase):
     input = None  # type: List[str]
     output = None  # type: List[str]
 
@@ -254,6 +251,35 @@ class DataDrivenTestCase(TestCase):
                         shutil.rmtree(path)
                     raise
         super().tear_down()
+
+    def update_testcase_output(self, output: List[str]) -> None:
+        testcase_path = os.path.join(self.old_cwd, self.file)
+        with open(testcase_path) as f:
+            data_lines = f.read().splitlines()
+        test = '\n'.join(data_lines[self.line:self.lastline])
+
+        mapping = {}  # type: Dict[str, List[str]]
+        for old, new in zip(self.output, output):
+            PREFIX = 'error:'
+            ind = old.find(PREFIX)
+            if ind != -1 and old[:ind] == new[:ind]:
+                old, new = old[ind + len(PREFIX):], new[ind + len(PREFIX):]
+            mapping.setdefault(old, []).append(new)
+
+        for old in mapping:
+            if test.count(old) == len(mapping[old]):
+                betweens = test.split(old)
+
+                # Interleave betweens and mapping[old]
+                from itertools import chain
+                interleaved = [betweens[0]] + \
+                    list(chain.from_iterable(zip(mapping[old], betweens[1:])))
+                test = ''.join(interleaved)
+
+        data_lines[self.line:self.lastline] = [test]
+        data = '\n'.join(data_lines)
+        with open(testcase_path, 'w') as f:
+            print(data, file=f)
 
 
 class TestItem:
@@ -445,19 +471,29 @@ def pytest_addoption(parser: Any) -> None:
                     help='Update test data to reflect actual output'
                          ' (supported only for certain tests)')
 
+from mypy.myunit import Suite
+
 
 # This function name is special to pytest.  See
 # http://doc.pytest.org/en/latest/writing_plugins.html#collection-hooks
 def pytest_pycollect_makeitem(collector: Any, name: str, obj: Any) -> Any:
-    if not isinstance(obj, type) or not issubclass(obj, DataSuite):
-        return None
-    return MypyDataSuite(name, parent=collector)
+    if isinstance(obj, type):
+        if issubclass(obj, DataSuite):
+            return MypyDataSuite(name, parent=collector)
+        if issubclass(obj, Suite):
+            return MypySuite(name, parent=collector)
 
 
 class MypyDataSuite(pytest.Class):  # type: ignore  # inheriting from Any
     def collect(self) -> Iterator['MypyDataCase']:
         for case in self.obj.cases():
             yield MypyDataCase(case.name, self, case)
+
+
+class MypySuite(pytest.Class):  # type: ignore  # inheriting from Any
+    def collect(self) -> Iterator['MypyCase']:
+        for case in self.obj().cases():
+            yield MypyCase(case.name, self, case)
 
 
 class MypyDataCase(pytest.Item):  # type: ignore  # inheriting from Any
@@ -499,13 +535,49 @@ class MypyDataCase(pytest.Item):  # type: ignore  # inheriting from Any
         return "data: {}:{}:\n{}".format(self.obj.file, self.obj.line, excrepr)
 
 
+class MypyCase(pytest.Item):  # type: ignore  # inheriting from Any
+    def __init__(self, name: str, parent: 'MypyCase', obj: ProtoTestCase) -> None:
+        super().__init__(name, parent)
+        self.obj = obj
+
+    def runtest(self) -> None:
+        try:
+            self.parent.obj().run_case(self.obj)
+        except SkipTestCaseException:
+            pytest.skip()
+
+    def setup(self) -> None:
+        self.obj.set_up()
+
+    def teardown(self) -> None:
+        self.obj.tear_down()
+
+    def reportinfo(self) -> str:
+        return self.obj.name
+
+    def repr_failure(self, excinfo: Any) -> str:
+        if excinfo.errisinstance(SystemExit):
+            # We assume that before doing exit() (which raises SystemExit) we've printed
+            # enough context about what happened so that a stack trace is not useful.
+            # In particular, uncaught exceptions during semantic analysis or type checking
+            # call exit() and they already print out a stack trace.
+            excrepr = excinfo.exconly()
+        else:
+            self.parent._prunetraceback(excinfo)
+            excrepr = excinfo.getrepr(style='short')
+
+        return str(excrepr)
+
+
 class DataSuite:
     def __init__(self, *, update_data: bool = False) -> None:
         self.update_data = update_data
 
     @classmethod
-    def cases(cls) -> List[DataDrivenTestCase]:
+    def cases(cls) -> Iterable[DataDrivenTestCase]:
+        """This implementation is required in order to cope with pytest's magic"""
         return []
 
+    @abstractmethod
     def run_case(self, testcase: DataDrivenTestCase) -> None:
         raise NotImplementedError

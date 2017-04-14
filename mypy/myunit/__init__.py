@@ -1,12 +1,12 @@
 import importlib
-import os
 import sys
-import tempfile
 import time
 import traceback
 
 from typing import List, Tuple, Any, Callable, Union, cast
 from types import TracebackType
+
+from mypy.test.helpers import ProtoTestCase, SkipTestCaseException, typename
 
 
 # TODO remove global state
@@ -16,131 +16,31 @@ patterns = []  # type: List[str]
 times = []  # type: List[Tuple[float, str]]
 
 
-class AssertionFailure(Exception):
-    """Exception used to signal failed test cases."""
-    def __init__(self, s: str = None) -> None:
-        if s:
-            super().__init__(s)
-        else:
-            super().__init__()
-
-
-class SkipTestCaseException(Exception):
-    """Exception used to signal skipped test cases."""
-    pass
-
-
-def assert_true(b: bool, msg: str = None) -> None:
-    if not b:
-        raise AssertionFailure(msg)
-
-
-def assert_false(b: bool, msg: str = None) -> None:
-    if b:
-        raise AssertionFailure(msg)
-
-
-def good_repr(obj: object) -> str:
-    if isinstance(obj, str):
-        if obj.count('\n') > 1:
-            bits = ["'''\\"]
-            for line in obj.split('\n'):
-                # force repr to use ' not ", then cut it off
-                bits.append(repr('"' + line)[2:-1])
-            bits[-1] += "'''"
-            return '\n'.join(bits)
-    return repr(obj)
-
-
-def assert_equal(a: object, b: object, fmt: str = '{} != {}') -> None:
-    if a != b:
-        raise AssertionFailure(fmt.format(good_repr(a), good_repr(b)))
-
-
-def assert_not_equal(a: object, b: object, fmt: str = '{} == {}') -> None:
-    if a == b:
-        raise AssertionFailure(fmt.format(good_repr(a), good_repr(b)))
-
-
-def assert_raises(typ: type, *rest: Any) -> None:
-    """Usage: assert_raises(exception class[, message], function[, args])
-
-    Call function with the given arguments and expect an exception of the given
-    type.
-
-    TODO use overloads for better type checking
-    """
-    # Parse arguments.
-    msg = None  # type: str
-    if isinstance(rest[0], str) or rest[0] is None:
-        msg = rest[0]
-        rest = rest[1:]
-    f = rest[0]
-    args = []  # type: List[Any]
-    if len(rest) > 1:
-        args = rest[1]
-        assert len(rest) <= 2
-
-    # Perform call and verify the exception.
-    try:
-        f(*args)
-    except BaseException as e:
-        if isinstance(e, KeyboardInterrupt):
-            raise
-        assert_type(typ, e)
-        if msg:
-            assert_equal(e.args[0], msg, 'Invalid message {}, expected {}')
-    else:
-        raise AssertionFailure('No exception raised')
-
-
-def assert_type(typ: type, value: object) -> None:
-    if type(value) != typ:
-        raise AssertionFailure('Invalid type {}, expected {}'.format(
-            typename(type(value)), typename(typ)))
-
-
-def fail() -> None:
-    raise AssertionFailure()
-
-
-class TestCase:
+class TestCase(ProtoTestCase):
     def __init__(self, name: str, suite: 'Suite' = None,
                  func: Callable[[], None] = None) -> None:
+        super().__init__(name)
         self.func = func
-        self.name = name
         self.suite = suite
-        self.old_cwd = None  # type: str
-        self.tmpdir = None  # type: tempfile.TemporaryDirectory
 
     def run(self) -> None:
         if self.func:
             self.func()
 
     def set_up(self) -> None:
-        self.old_cwd = os.getcwd()
-        self.tmpdir = tempfile.TemporaryDirectory(prefix='mypy-test-',
-                dir=os.path.abspath('tmp-test-dirs'))
-        os.chdir(self.tmpdir.name)
-        os.mkdir('tmp')
+        super().set_up()
         if self.suite:
             self.suite.set_up()
 
     def tear_down(self) -> None:
         if self.suite:
             self.suite.tear_down()
-        os.chdir(self.old_cwd)
-        self.tmpdir.cleanup()
-        self.old_cwd = None
-        self.tmpdir = None
+        super().tear_down()
 
 
 class Suite:
     def __init__(self) -> None:
         self.prefix = typename(type(self)) + '.'
-        # Each test case is either a TestCase object or (str, function).
-        self._test_cases = []  # type: List[Any]
-        self.init()
 
     def set_up(self) -> None:
         pass
@@ -148,22 +48,14 @@ class Suite:
     def tear_down(self) -> None:
         pass
 
-    def init(self) -> None:
+    def cases(self) -> None:
         for m in dir(self):
-            if m.startswith('test'):
+            if m.startswith('test_'):
                 t = getattr(self, m)
-                if isinstance(t, Suite):
-                    self.add_test((m + '.', t))
-                else:
-                    self.add_test(TestCase(m, self, getattr(self, m)))
+                yield TestCase(m, self, t)
 
-    def add_test(self, test: Union[TestCase,
-                                   Tuple[str, Callable[[], None]],
-                                   Tuple[str, 'Suite']]) -> None:
-        self._test_cases.append(test)
-
-    def cases(self) -> List[Any]:
-        return self._test_cases[:]
+    def run_case(self, testcase) -> None:
+        testcase.run()
 
     def skip(self) -> None:
         raise SkipTestCaseException()
@@ -339,13 +231,6 @@ def handle_failure(name: str,
     exception = typename(exc_type)
     sys.stderr.write('{}{}\n\n'.format(exception, msg))
     sys.stderr.write('{} failed\n\n'.format(name))
-
-
-def typename(t: type) -> str:
-    if '.' in str(t):
-        return str(t).split('.')[-1].rstrip("'>")
-    else:
-        return str(t)[8:-2]
 
 
 def match_pattern(s: str, p: str) -> bool:

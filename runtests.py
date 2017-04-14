@@ -219,6 +219,9 @@ PYTEST_FILES = [os.path.join('mypy', 'test', '{}.py'.format(name)) for name in [
     'testsemanal',
     'testcmdline',
     'testparse',
+    'testpythoneval',
+    'testtypegen',
+    'teststubgen',  # FIX this is not completely migrated and parts of it does not run yet
 ]]
 
 

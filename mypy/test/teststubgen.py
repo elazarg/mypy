@@ -1,20 +1,17 @@
 import glob
 import importlib
 import os.path
-import random
 import shutil
 import sys
 import tempfile
-import time
 from types import ModuleType
 
 from typing import List, Tuple
 
-from mypy.myunit import Suite, AssertionFailure, assert_equal
-from mypy.test.helpers import assert_string_arrays_equal
-from mypy.test.data import parse_test_cases, DataDrivenTestCase
+from mypy.myunit import Suite
+from mypy.test.helpers import assert_string_arrays_equal, assert_equal
+from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
 from mypy.test import config
-from mypy.parse import parse
 from mypy.errors import CompileError
 from mypy.stubgen import generate_stub, generate_stub_for_module
 from mypy.stubgenc import generate_c_type_stub, infer_method_sig
@@ -24,6 +21,7 @@ from mypy.stubutil import (
 )
 
 
+# FIX this does not run yet
 class StubgenUtilSuite(Suite):
     def test_parse_signature(self) -> None:
         self.assert_parse_signature('func()', ('func', [], []))
@@ -94,50 +92,50 @@ class StubgenUtilSuite(Suite):
         assert_equal(infer_sig_from_docstring('\nfunc x', 'func'), None)
 
 
-class StubgenPythonSuite(Suite):
+class StubgenPythonSuite(DataSuite):
     test_data_files = ['stubgen.test']
 
-    def cases(self) -> List[DataDrivenTestCase]:
+    @classmethod
+    def cases(cls) -> List[DataDrivenTestCase]:
         c = []  # type: List[DataDrivenTestCase]
-        for path in self.test_data_files:
-            c += parse_test_cases(os.path.join(config.test_data_prefix, path), test_stubgen)
+        for path in cls.test_data_files:
+            c += parse_test_cases(os.path.join(config.test_data_prefix, path), None)
         return c
 
-
-def test_stubgen(testcase: DataDrivenTestCase) -> None:
-    if 'stubgen-test-path' not in sys.path:
-        sys.path.insert(0, 'stubgen-test-path')
-    os.mkdir('stubgen-test-path')
-    source = '\n'.join(testcase.input)
-    handle = tempfile.NamedTemporaryFile(prefix='prog_', suffix='.py', dir='stubgen-test-path',
-                                         delete=False)
-    assert os.path.isabs(handle.name)
-    path = os.path.basename(handle.name)
-    name = path[:-3]
-    path = os.path.join('stubgen-test-path', path)
-    out_dir = '_out'
-    os.mkdir(out_dir)
-    try:
-        handle.write(bytes(source, 'ascii'))
-        handle.close()
-        # Without this we may sometimes be unable to import the module below, as importlib
-        # caches os.listdir() results in Python 3.3+ (Guido explained this to me).
-        reset_importlib_caches()
+    def run_case(self, testcase: DataDrivenTestCase) -> None:
+        if 'stubgen-test-path' not in sys.path:
+            sys.path.insert(0, 'stubgen-test-path')
+        os.mkdir('stubgen-test-path')
+        source = '\n'.join(testcase.input)
+        handle = tempfile.NamedTemporaryFile(prefix='prog_', suffix='.py', dir='stubgen-test-path',
+                                             delete=False)
+        assert os.path.isabs(handle.name)
+        path = os.path.basename(handle.name)
+        name = path[:-3]
+        path = os.path.join('stubgen-test-path', path)
+        out_dir = '_out'
+        os.mkdir(out_dir)
         try:
-            if testcase.name.endswith('_import'):
-                generate_stub_for_module(name, out_dir, quiet=True)
-            else:
-                generate_stub(path, out_dir)
-            a = load_output(out_dir)
-        except CompileError as e:
-            a = e.messages
-        assert_string_arrays_equal(testcase.output, a,
-                                   'Invalid output ({}, line {})'.format(
-                                       testcase.file, testcase.line))
-    finally:
-        handle.close()
-        os.unlink(handle.name)
-        shutil.rmtree(out_dir)
+            handle.write(bytes(source, 'ascii'))
+            handle.close()
+            # Without this we may sometimes be unable to import the module below, as importlib
+            # caches os.listdir() results in Python 3.3+ (Guido explained this to me).
+            reset_importlib_caches()
+            try:
+                if testcase.name.endswith('_import'):
+                    generate_stub_for_module(name, out_dir, quiet=True)
+                else:
+                    generate_stub(path, out_dir)
+                a = load_output(out_dir)
+            except CompileError as e:
+                a = e.messages
+            assert_string_arrays_equal(testcase.output, a,
+                                       'Invalid output ({}, line {})'.format(
+                                           testcase.file, testcase.line))
+        finally:
+            handle.close()
+            os.unlink(handle.name)
+            shutil.rmtree(out_dir)
 
 
 def reset_importlib_caches() -> None:

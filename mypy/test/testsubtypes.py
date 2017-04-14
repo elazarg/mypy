@@ -1,4 +1,5 @@
-from mypy.myunit import Suite, assert_true
+from mypy.myunit import Suite
+from mypy.test.helpers import assert_true
 from mypy.nodes import CONTRAVARIANT, INVARIANT, COVARIANT
 from mypy.subtypes import is_subtype
 from mypy.typefixture import TypeFixture, InterfaceTypeFixture
