@@ -382,16 +382,6 @@ def parse_test_stats_from_output(output: str, fail_type: Optional[str]) -> Tuple
         return (sum(c for k, c in counts.items() if k != 'deselected'),
                 counts.get('failed', 0))
 
-    # myunit
-    m = re.search('^([0-9]+)/([0-9]+) test cases failed(, ([0-9]+) skipped)?.$', output,
-                  re.MULTILINE)
-    if m:
-        return int(m.group(2)), int(m.group(1))
-    m = re.search('^([0-9]+) test cases run(, ([0-9]+) skipped)?, all passed.$', output,
-                  re.MULTILINE)
-    if m:
-        return int(m.group(1)), 0
-
     # Couldn't find test counts, so fall back to single test per tasks.
     if fail_type is not None:
         return 1, 1

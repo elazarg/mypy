@@ -5,14 +5,12 @@ defaults, and that argparse doesn't assign any new members to the Options
 object it creates.
 """
 
-from mypy.myunit import Suite
 from mypy.test.helpers import assert_equal
 from mypy.options import Options
 from mypy.main import process_options
 
 
-class ArgSuite(Suite):
-    def test_coherence(self) -> None:
-        options = Options()
-        _, parsed_options = process_options([], require_targets=False)
-        assert_equal(options, parsed_options)
+def test_coherence() -> None:
+    options = Options()
+    _, parsed_options = process_options([], require_targets=False)
+    assert_equal(options, parsed_options)

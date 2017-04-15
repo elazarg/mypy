@@ -35,6 +35,7 @@ AST = 'AST'
 
 class ASTMergeSuite(DataSuite):
     def __init__(self, *, update_data: bool) -> None:
+        super().__init__(update_data=update_data)
         self.str_conv = StrConv(show_ids=True)
         self.id_mapper = self.str_conv.id_mapper
         self.type_str_conv = TypeStrVisitor(self.id_mapper)

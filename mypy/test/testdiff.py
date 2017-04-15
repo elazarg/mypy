@@ -33,8 +33,8 @@ class ASTDiffSuite(DataSuite):
         files_dict = dict(testcase.files)
         second_src = files_dict['tmp/next.py']
 
-        messages1, files1 = self.build(first_src)
-        messages2, files2 = self.build(second_src)
+        messages1, files1 = perform_build(first_src)
+        messages2, files2 = perform_build(second_src)
 
         a = []
         if messages1:
@@ -55,15 +55,16 @@ class ASTDiffSuite(DataSuite):
             'Invalid output ({}, line {})'.format(testcase.file,
                                                   testcase.line))
 
-    def build(self, source: str) -> Tuple[List[str], Dict[str, MypyFile]]:
-        options = Options()
-        options.use_builtins_fixtures = True
-        options.show_traceback = True
-        try:
-            result = build.build(sources=[BuildSource('main', None, source)],
-                                 options=options,
-                                 alt_lib_path=test_temp_dir)
-        except CompileError as e:
-            # TODO: Is it okay to return None?
-            return e.messages, None
-        return result.errors, result.files
+
+def perform_build(source: str) -> Tuple[List[str], Dict[str, MypyFile]]:
+    options = Options()
+    options.use_builtins_fixtures = True
+    options.show_traceback = True
+    try:
+        result = build.build(sources=[BuildSource('main', None, source)],
+                             options=options,
+                             alt_lib_path=test_temp_dir)
+    except CompileError as e:
+        # TODO: Is it okay to return None?
+        return e.messages, None
+    return result.errors, result.files

@@ -471,8 +471,6 @@ def pytest_addoption(parser: Any) -> None:
                     help='Update test data to reflect actual output'
                          ' (supported only for certain tests)')
 
-from mypy.myunit import Suite
-
 
 # This function name is special to pytest.  See
 # http://doc.pytest.org/en/latest/writing_plugins.html#collection-hooks
@@ -480,20 +478,12 @@ def pytest_pycollect_makeitem(collector: Any, name: str, obj: Any) -> Any:
     if isinstance(obj, type):
         if issubclass(obj, DataSuite):
             return MypyDataSuite(name, parent=collector)
-        if issubclass(obj, Suite):
-            return MypySuite(name, parent=collector)
 
 
 class MypyDataSuite(pytest.Class):  # type: ignore  # inheriting from Any
     def collect(self) -> Iterator['MypyDataCase']:
         for case in self.obj.cases():
             yield MypyDataCase(case.name, self, case)
-
-
-class MypySuite(pytest.Class):  # type: ignore  # inheriting from Any
-    def collect(self) -> Iterator['MypyCase']:
-        for case in self.obj().cases():
-            yield MypyCase(case.name, self, case)
 
 
 class MypyDataCase(pytest.Item):  # type: ignore  # inheriting from Any

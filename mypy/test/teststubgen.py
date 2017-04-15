@@ -8,7 +8,6 @@ from types import ModuleType
 
 from typing import List, Tuple
 
-from mypy.myunit import Suite
 from mypy.test.helpers import assert_string_arrays_equal, assert_equal
 from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
 from mypy.test import config
@@ -21,75 +20,85 @@ from mypy.stubutil import (
 )
 
 
-# FIX this does not run yet
-class StubgenUtilSuite(Suite):
-    def test_parse_signature(self) -> None:
-        self.assert_parse_signature('func()', ('func', [], []))
+def test_parse_signature() -> None:
+    assert_parse_signature('func()', ('func', [], []))
 
-    def test_parse_signature_with_args(self) -> None:
-        self.assert_parse_signature('func(arg)', ('func', ['arg'], []))
-        self.assert_parse_signature('do(arg, arg2)', ('do', ['arg', 'arg2'], []))
 
-    def test_parse_signature_with_optional_args(self) -> None:
-        self.assert_parse_signature('func([arg])', ('func', [], ['arg']))
-        self.assert_parse_signature('func(arg[, arg2])', ('func', ['arg'], ['arg2']))
-        self.assert_parse_signature('func([arg[, arg2]])', ('func', [], ['arg', 'arg2']))
+def test_parse_signature_with_args() -> None:
+    assert_parse_signature('func(arg)', ('func', ['arg'], []))
+    assert_parse_signature('do(arg, arg2)', ('do', ['arg', 'arg2'], []))
 
-    def test_parse_signature_with_default_arg(self) -> None:
-        self.assert_parse_signature('func(arg=None)', ('func', [], ['arg']))
-        self.assert_parse_signature('func(arg, arg2=None)', ('func', ['arg'], ['arg2']))
-        self.assert_parse_signature('func(arg=1, arg2="")', ('func', [], ['arg', 'arg2']))
 
-    def test_parse_signature_with_qualified_function(self) -> None:
-        self.assert_parse_signature('ClassName.func(arg)', ('func', ['arg'], []))
+def test_parse_signature_with_optional_args() -> None:
+    assert_parse_signature('func([arg])', ('func', [], ['arg']))
+    assert_parse_signature('func(arg[, arg2])', ('func', ['arg'], ['arg2']))
+    assert_parse_signature('func([arg[, arg2]])', ('func', [], ['arg', 'arg2']))
 
-    def test_parse_signature_with_kw_only_arg(self) -> None:
-        self.assert_parse_signature('ClassName.func(arg, *, arg2=1)',
-                                    ('func', ['arg', '*'], ['arg2']))
 
-    def test_parse_signature_with_star_arg(self) -> None:
-        self.assert_parse_signature('ClassName.func(arg, *args)',
-                                    ('func', ['arg', '*args'], []))
+def test_parse_signature_with_default_arg() -> None:
+    assert_parse_signature('func(arg=None)', ('func', [], ['arg']))
+    assert_parse_signature('func(arg, arg2=None)', ('func', ['arg'], ['arg2']))
+    assert_parse_signature('func(arg=1, arg2="")', ('func', [], ['arg', 'arg2']))
 
-    def test_parse_signature_with_star_star_arg(self) -> None:
-        self.assert_parse_signature('ClassName.func(arg, **args)',
-                                    ('func', ['arg', '**args'], []))
 
-    def assert_parse_signature(self, sig: str, result: Tuple[str, List[str], List[str]]) -> None:
-        assert_equal(parse_signature(sig), result)
+def test_parse_signature_with_qualified_function() -> None:
+    assert_parse_signature('ClassName.func(arg)', ('func', ['arg'], []))
 
-    def test_build_signature(self) -> None:
-        assert_equal(build_signature([], []), '()')
-        assert_equal(build_signature(['arg'], []), '(arg)')
-        assert_equal(build_signature(['arg', 'arg2'], []), '(arg, arg2)')
-        assert_equal(build_signature(['arg'], ['arg2']), '(arg, arg2=...)')
-        assert_equal(build_signature(['arg'], ['arg2', '**x']), '(arg, arg2=..., **x)')
 
-    def test_parse_all_signatures(self) -> None:
-        assert_equal(parse_all_signatures(['random text',
-                                           '.. function:: fn(arg',
-                                           '.. function:: fn()',
-                                           '  .. method:: fn2(arg)']),
-                     ([('fn', '()'),
-                       ('fn2', '(arg)')], []))
+def test_parse_signature_with_kw_only_arg() -> None:
+    assert_parse_signature('ClassName.func(arg, *, arg2=1)',
+                           ('func', ['arg', '*'], ['arg2']))
 
-    def test_find_unique_signatures(self) -> None:
-        assert_equal(find_unique_signatures(
-            [('func', '()'),
-             ('func', '()'),
-             ('func2', '()'),
-             ('func2', '(arg)'),
-             ('func3', '(arg, arg2)')]),
-            [('func', '()'),
-             ('func3', '(arg, arg2)')])
 
-    def test_infer_sig_from_docstring(self) -> None:
-        assert_equal(infer_sig_from_docstring('\nfunc(x) - y', 'func'), '(x)')
-        assert_equal(infer_sig_from_docstring('\nfunc(x, Y_a=None)', 'func'), '(x, Y_a=None)')
-        assert_equal(infer_sig_from_docstring('\nafunc(x) - y', 'func'), None)
-        assert_equal(infer_sig_from_docstring('\nfunc(x, y', 'func'), None)
-        assert_equal(infer_sig_from_docstring('\nfunc(x=z(y))', 'func'), None)
-        assert_equal(infer_sig_from_docstring('\nfunc x', 'func'), None)
+def test_parse_signature_with_star_arg() -> None:
+    assert_parse_signature('ClassName.func(arg, *args)',
+                           ('func', ['arg', '*args'], []))
+
+
+def test_parse_signature_with_star_star_arg() -> None:
+    assert_parse_signature('ClassName.func(arg, **args)',
+                           ('func', ['arg', '**args'], []))
+
+
+def assert_parse_signature(sig: str, result: Tuple[str, List[str], List[str]]) -> None:
+    assert_equal(parse_signature(sig), result)
+
+
+def test_build_signature() -> None:
+    assert_equal(build_signature([], []), '()')
+    assert_equal(build_signature(['arg'], []), '(arg)')
+    assert_equal(build_signature(['arg', 'arg2'], []), '(arg, arg2)')
+    assert_equal(build_signature(['arg'], ['arg2']), '(arg, arg2=...)')
+    assert_equal(build_signature(['arg'], ['arg2', '**x']), '(arg, arg2=..., **x)')
+
+
+def test_parse_all_signatures() -> None:
+    assert_equal(parse_all_signatures(['random text',
+                                       '.. function:: fn(arg',
+                                       '.. function:: fn()',
+                                       '  .. method:: fn2(arg)']),
+                 ([('fn', '()'),
+                   ('fn2', '(arg)')], []))
+
+
+def test_find_unique_signatures() -> None:
+    assert_equal(find_unique_signatures(
+        [('func', '()'),
+         ('func', '()'),
+         ('func2', '()'),
+         ('func2', '(arg)'),
+         ('func3', '(arg, arg2)')]),
+        [('func', '()'),
+         ('func3', '(arg, arg2)')])
+
+
+def test_infer_sig_from_docstring() -> None:
+    assert_equal(infer_sig_from_docstring('\nfunc(x) - y', 'func'), '(x)')
+    assert_equal(infer_sig_from_docstring('\nfunc(x, Y_a=None)', 'func'), '(x, Y_a=None)')
+    assert_equal(infer_sig_from_docstring('\nafunc(x) - y', 'func'), None)
+    assert_equal(infer_sig_from_docstring('\nfunc(x, y', 'func'), None)
+    assert_equal(infer_sig_from_docstring('\nfunc(x=z(y))', 'func'), None)
+    assert_equal(infer_sig_from_docstring('\nfunc x', 'func'), None)
 
 
 class StubgenPythonSuite(DataSuite):
@@ -163,27 +172,31 @@ def add_file(path: str, result: List[str]) -> None:
         result.extend(file.read().splitlines())
 
 
-class StubgencSuite(Suite):
-    def test_infer_hash_sig(self) -> None:
-        assert_equal(infer_method_sig('__hash__'), '()')
+def test_infer_hash_sig() -> None:
+    assert_equal(infer_method_sig('__hash__'), '()')
 
-    def test_infer_getitem_sig(self) -> None:
-        assert_equal(infer_method_sig('__getitem__'), '(index)')
 
-    def test_infer_setitem_sig(self) -> None:
-        assert_equal(infer_method_sig('__setitem__'), '(index, object)')
+def test_infer_getitem_sig() -> None:
+    assert_equal(infer_method_sig('__getitem__'), '(index)')
 
-    def test_infer_binary_op_sig(self) -> None:
-        for op in ('eq', 'ne', 'lt', 'le', 'gt', 'ge',
-                   'add', 'radd', 'sub', 'rsub', 'mul', 'rmul'):
-            assert_equal(infer_method_sig('__%s__' % op), '(other)')
 
-    def test_infer_unary_op_sig(self) -> None:
-        for op in ('neg', 'pos'):
-            assert_equal(infer_method_sig('__%s__' % op), '()')
+def test_infer_setitem_sig() -> None:
+    assert_equal(infer_method_sig('__setitem__'), '(index, object)')
 
-    def test_generate_c_type_stub_no_crash_for_object(self) -> None:
-        output = []  # type: List[str]
-        mod = ModuleType('module', '')  # any module is fine
-        generate_c_type_stub(mod, 'alias', object, output)
-        assert_equal(output[0], 'class alias:')
+
+def test_infer_binary_op_sig() -> None:
+    for op in ('eq', 'ne', 'lt', 'le', 'gt', 'ge',
+               'add', 'radd', 'sub', 'rsub', 'mul', 'rmul'):
+        assert_equal(infer_method_sig('__%s__' % op), '(other)')
+
+
+def test_infer_unary_op_sig() -> None:
+    for op in ('neg', 'pos'):
+        assert_equal(infer_method_sig('__%s__' % op), '()')
+
+
+def test_generate_c_type_stub_no_crash_for_object() -> None:
+    output = []  # type: List[str]
+    mod = ModuleType('module', '')  # any module is fine
+    generate_c_type_stub(mod, 'alias', object, output)
+    assert_equal(output[0], 'class alias:')

@@ -24,7 +24,7 @@ if True:
     # Now `typing` is available.
 
 
-from typing import Dict, List, Optional, Set, Iterable
+from typing import List, Optional, Set, Iterable
 
 from mypy.waiter import Waiter, LazySubprocess
 from mypy import util
@@ -34,7 +34,6 @@ from mypy.test.testpythoneval import python_eval_files, python_34_eval_files
 import itertools
 import os
 import re
-import json
 
 
 # Ideally, all tests would be `discover`able so that they can be driven
@@ -173,7 +172,6 @@ def add_basic(driver: Driver) -> None:
         driver.add_mypy('file setup.py', 'setup.py')
     driver.add_mypy('file runtests.py', 'runtests.py')
     driver.add_mypy('legacy entry script', 'scripts/mypy')
-    driver.add_mypy('legacy myunit script', 'scripts/myunit')
     # needs typed_ast installed:
     driver.add_mypy('fast-parse', '--fast-parse', 'test-data/samples/hello.py')
 
@@ -215,22 +213,6 @@ def add_pytest(driver: Driver) -> None:
     driver.add_pytest('pytest', PYTEST_FILES + driver.arglist + driver.pyt_arglist, True)
 
 
-def add_myunit(driver: Driver) -> None:
-    for f in find_files('mypy', prefix='test', suffix='.py'):
-        mod = file_to_module(f)
-        if mod in ('mypy.test.testpythoneval', 'mypy.test.testcmdline'):
-            # Run Python evaluation integration tests and command-line
-            # parsing tests separately since they are much slower than
-            # proper unit tests.
-            pass
-        elif f in PYTEST_FILES:
-            # This module has been converted to pytest; don't try to use myunit.
-            pass
-        else:
-            driver.add_python_mod('unit-test %s' % mod, 'mypy.myunit', '-m', mod,
-                                  *driver.arglist, coverage=True)
-
-
 def add_pythoneval(driver: Driver) -> None:
     cases = set()
     case_re = re.compile(r'^\[case ([^\]]+)\]$')
@@ -243,10 +225,11 @@ def add_pythoneval(driver: Driver) -> None:
                     assert case_name[:4] == 'test'
                     cases.add(case_name[4:5])
 
-    for prefix in sorted(cases):
+    for prefix in [] and sorted(cases):
+        # Not ready yet
         driver.add_python_mod(
             'eval-test-' + prefix,
-            'mypy.myunit',
+            'py.test',
             '-m',
             'mypy.test.testpythoneval',
             'test_testpythoneval_PythonEvaluationSuite.test' + prefix + '*',
@@ -256,9 +239,11 @@ def add_pythoneval(driver: Driver) -> None:
 
 
 def add_cmdline(driver: Driver) -> None:
-    driver.add_python_mod('cmdline-test', 'mypy.myunit',
-                          '-m', 'mypy.test.testcmdline', *driver.arglist,
-                         coverage=True)
+    # Not ready yet
+    if False:
+        driver.add_python_mod('cmdline-test', 'py.test',
+                              '-m', 'mypy.test.testcmdline', *driver.arglist,
+                              coverage=True)
 
 
 def add_stubs(driver: Driver) -> None:
@@ -306,9 +291,9 @@ def usage(status: int) -> None:
     print('Run mypy tests. If given no arguments, run all tests.')
     print()
     print('Examples:')
-    print('  %s unit-test  (run unit tests only)' % sys.argv[0])
-    print('  %s unit-test -a "*tuple*"' % sys.argv[0])
-    print('       (run all unit tests with "tuple" in test name)')
+    print('  %s pytest  (run pytests only)' % sys.argv[0])
+    print('  %s pytest -p "*tuple*"' % sys.argv[0])
+    print('       (run all pytests with "tuple" in test name)')
     print()
     print('Options:')
     print('  -h, --help             show this help')
@@ -317,7 +302,6 @@ def usage(status: int) -> None:
     print('  --ff                   run all tests but run the last failures first')
     print('  -q, --quiet            decrease driver verbosity')
     print('  -jN                    run N tasks at once (default: one per CPU)')
-    print('  -a, --argument ARG     pass an argument to myunit tasks')
     print('  -p, --pytest_arg ARG   pass an argument to pytest tasks')
     print('                         (-v: verbose; glob pattern: filter by test name)')
     print('  -l, --list             list included tasks (after filtering) and exit')
@@ -430,7 +414,6 @@ def main() -> None:
     add_cmdline(driver)
     add_basic(driver)
     add_selftypecheck(driver)
-    add_myunit(driver)
     add_imports(driver)
     add_stubs(driver)
     add_stdlibsamples(driver)

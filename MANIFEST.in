@@ -1,2 +1,1 @@
 recursive-include scripts *
-recursive-exclude scripts myunit

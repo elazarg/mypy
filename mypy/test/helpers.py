@@ -3,7 +3,7 @@ import re
 import os
 import tempfile
 
-from typing import List, Dict, Tuple, Any
+from typing import List, Tuple, Any
 
 from mypy import defaults
 
@@ -74,7 +74,7 @@ def assert_string_arrays_equal(expected: List[str], actual: List[str],
 
         sys.stderr.write('\n')
 
-        if first_diff >= 0 and first_diff < len(actual) and (
+        if 0 <= first_diff < len(actual) and (
                 len(expected[first_diff]) >= MIN_LINE_LENGTH_FOR_ALIGNMENT
                 or len(actual[first_diff]) >= MIN_LINE_LENGTH_FOR_ALIGNMENT):
             # Display message that helps visualize the differences between two
@@ -254,18 +254,13 @@ def num_skipped_suffix_lines(a1: List[str], a2: List[str]) -> int:
     return max(0, num_eq - 4)
 
 
-def testfile_pyversion(path: str) -> Tuple[int, int]:
-    if path.endswith('python2.test'):
+def casefile_pyversion(path: str, testcase_name: str = '') -> Tuple[int, int]:
+    if testcase_name.endswith('python2'):
+        return defaults.PYTHON2_VERSION
+    elif path.endswith('python2.test'):
         return defaults.PYTHON2_VERSION
     else:
         return defaults.PYTHON3_VERSION
-
-
-def testcase_pyversion(path: str, testcase_name: str) -> Tuple[int, int]:
-    if testcase_name.endswith('python2'):
-        return defaults.PYTHON2_VERSION
-    else:
-        return testfile_pyversion(path)
 
 
 def normalize_error_messages(messages: List[str]) -> List[str]:
@@ -366,7 +361,3 @@ def typename(t: type) -> str:
         return str(t).split('.')[-1].rstrip("'>")
     else:
         return str(t)[8:-2]
-
-
-def fail() -> None:
-    raise AssertionFailure()

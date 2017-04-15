@@ -13,7 +13,7 @@ from mypy.test.config import test_temp_dir, test_data_prefix
 from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
 from mypy.test.helpers import (
     assert_string_arrays_equal, normalize_error_messages,
-    testcase_pyversion, AssertionFailure
+    casefile_pyversion, AssertionFailure
 )
 from mypy.errors import CompileError
 from mypy.options import Options
@@ -324,6 +324,6 @@ def parse_options(program_text: str, testcase: DataDrivenTestCase,
     # Allow custom python version to override testcase_pyversion
     if (not flag_list or
             all(flag not in flag_list for flag in ['--python-version', '-2', '--py2'])):
-        options.python_version = testcase_pyversion(testcase.file, testcase.name)
+        options.python_version = casefile_pyversion(testcase.file, testcase.name)
 
     return options

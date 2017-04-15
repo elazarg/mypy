@@ -50,7 +50,7 @@ class PythonEvaluationSuite(DataSuite):
 
     def run_case(self, testcase: DataDrivenTestCase) -> None:
         """Runs Mypy in a subprocess.
-    
+
         If this passes without errors, executes the script again with a given Python
         version.
         """

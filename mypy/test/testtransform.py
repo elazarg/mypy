@@ -6,7 +6,7 @@ from typing import List
 
 from mypy import build
 from mypy.build import BuildSource
-from mypy.test.helpers import assert_string_arrays_equal, testfile_pyversion
+from mypy.test.helpers import assert_string_arrays_equal, casefile_pyversion
 from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
 from mypy.test.config import test_data_prefix, test_temp_dir
 from mypy.errors import CompileError
@@ -34,7 +34,7 @@ class TransformSuite(DataSuite):
             options.use_builtins_fixtures = True
             options.semantic_analysis_only = True
             options.show_traceback = True
-            options.python_version = testfile_pyversion(testcase.file)
+            options.python_version = casefile_pyversion(testcase.file)
             result = build.build(sources=[BuildSource('main', None, src)],
                                  options=options,
                                  alt_lib_path=test_temp_dir)

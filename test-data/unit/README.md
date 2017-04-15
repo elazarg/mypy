@@ -93,18 +93,14 @@ For example, to run unit tests only, which run pretty quickly:
 
     $ ./runtests.py unit-test pytest
 
-The unit test suites are driven by a mixture of test frameworks: mypy's own
-`myunit` framework, and `pytest`, which we're in the process of migrating to.
+The unit test suites are driven by `pytest`.
 Test suites for individual components are in the files `mypy/test/test*.py`.
 You can run many of these individually by doing `runtests.py testfoobar`. For
-finer control over which unit tests are run and how, you can run `py.test` or
-`scripts/myunit` directly, or pass inferior arguments via `-a`:
+finer control over which unit tests are run and how, you can run `py.test`
+directly, or pass inferior arguments via `-a`:
 
     $ py.test mypy/test/testcheck.py -v -k MethodCall
     $ ./runtests.py -v 'pytest mypy/test/testcheck' -a -v -a -k -a MethodCall
-
-    $ PYTHONPATH=$PWD scripts/myunit -m mypy.test.testlex -v '*backslash*'
-    $ ./runtests.py mypy.test.testlex -a -v -a '*backslash*'
 
 You can also run the type checker for manual testing without
 installing anything by setting up the Python module search path
@@ -131,8 +127,7 @@ To run the linter:
 
 Many test suites store test case descriptions in text files
 (`test-data/unit/*.test`). The module `mypy.test.data` parses these
-descriptions. The package `mypy.myunit` contains the test framework used for
-the non-checker test cases.
+descriptions.
 
 Python evaluation test cases are a little different from unit tests
 (`mypy/test/testpythoneval.py`, `test-data/unit/pythoneval.test`). These

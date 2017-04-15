@@ -20,9 +20,6 @@ files = [
 
 
 class GetDependenciesSuite(DataSuite):
-    def __init__(self, *, update_data: bool) -> None:
-        pass
-
     @classmethod
     def cases(cls) -> List[DataDrivenTestCase]:
         c = []  # type: List[DataDrivenTestCase]
@@ -33,7 +30,7 @@ class GetDependenciesSuite(DataSuite):
 
     def run_case(self, testcase: DataDrivenTestCase) -> None:
         src = '\n'.join(testcase.input)
-        messages, files, type_map = self.build(src)
+        messages, files, type_map = perform_build(src)
         a = messages
         deps = get_dependencies('__main__', files['__main__'], type_map)
 
@@ -48,17 +45,18 @@ class GetDependenciesSuite(DataSuite):
             'Invalid output ({}, line {})'.format(testcase.file,
                                                   testcase.line))
 
-    def build(self, source: str) -> Tuple[List[str],
-                                          Dict[str, MypyFile],
-                                          Dict[Expression, Type]]:
-        options = Options()
-        options.use_builtins_fixtures = True
-        options.show_traceback = True
-        try:
-            result = build.build(sources=[BuildSource('main', None, source)],
-                                 options=options,
-                                 alt_lib_path=test_temp_dir)
-        except CompileError as e:
-            # TODO: Should perhaps not return None here.
-            return e.messages, None, None
-        return result.errors, result.files, result.types
+
+def perform_build(source: str) -> Tuple[List[str],
+                                        Dict[str, MypyFile],
+                                        Dict[Expression, Type]]:
+    options = Options()
+    options.use_builtins_fixtures = True
+    options.show_traceback = True
+    try:
+        result = build.build(sources=[BuildSource('main', None, source)],
+                             options=options,
+                             alt_lib_path=test_temp_dir)
+    except CompileError as e:
+        # TODO: Should perhaps not return None here.
+        return e.messages, None, None
+    return result.errors, result.files, result.types

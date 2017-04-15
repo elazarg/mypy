@@ -1,208 +1,227 @@
-from mypy.myunit import Suite
 from mypy.test.helpers import assert_true
-from mypy.nodes import CONTRAVARIANT, INVARIANT, COVARIANT
 from mypy.subtypes import is_subtype
-from mypy.typefixture import TypeFixture, InterfaceTypeFixture
+from mypy.typefixture import InterfaceTypeFixture
 from mypy.types import Type
 
+import pytest
 
-class SubtypingSuite(Suite):
-    def set_up(self) -> None:
-        self.fx = TypeFixture(INVARIANT)
-        self.fx_contra = TypeFixture(CONTRAVARIANT)
-        self.fx_co = TypeFixture(COVARIANT)
 
-    def test_trivial_cases(self) -> None:
-        for simple in self.fx_co.a, self.fx_co.o, self.fx_co.b:
-            self.assert_subtype(simple, simple)
+def test_trivial_cases(fx) -> None:
+    for simple in fx.a, fx.o, fx.b:
+        assert_subtype(simple, simple)
 
-    def test_instance_subtyping(self) -> None:
-        self.assert_strict_subtype(self.fx.a, self.fx.o)
-        self.assert_strict_subtype(self.fx.b, self.fx.o)
-        self.assert_strict_subtype(self.fx.b, self.fx.a)
 
-        self.assert_not_subtype(self.fx.a, self.fx.d)
-        self.assert_not_subtype(self.fx.b, self.fx.c)
+def test_instance_subtyping(fx_inv) -> None:
+    assert_strict_subtype(fx_inv.a, fx_inv.o)
+    assert_strict_subtype(fx_inv.b, fx_inv.o)
+    assert_strict_subtype(fx_inv.b, fx_inv.a)
 
-    def test_simple_generic_instance_subtyping_invariant(self) -> None:
-        self.assert_subtype(self.fx.ga, self.fx.ga)
-        self.assert_subtype(self.fx.hab, self.fx.hab)
+    assert_not_subtype(fx_inv.a, fx_inv.d)
+    assert_not_subtype(fx_inv.b, fx_inv.c)
 
-        self.assert_not_subtype(self.fx.ga, self.fx.g2a)
-        self.assert_not_subtype(self.fx.ga, self.fx.gb)
-        self.assert_not_subtype(self.fx.gb, self.fx.ga)
 
-    def test_simple_generic_instance_subtyping_covariant(self) -> None:
-        self.assert_subtype(self.fx_co.ga, self.fx_co.ga)
-        self.assert_subtype(self.fx_co.hab, self.fx_co.hab)
+def test_simple_generic_instance_subtyping_invariant(fx_inv) -> None:
+    assert_subtype(fx_inv.ga, fx_inv.ga)
+    assert_subtype(fx_inv.hab, fx_inv.hab)
 
-        self.assert_not_subtype(self.fx_co.ga, self.fx_co.g2a)
-        self.assert_not_subtype(self.fx_co.ga, self.fx_co.gb)
-        self.assert_subtype(self.fx_co.gb, self.fx_co.ga)
+    assert_not_subtype(fx_inv.ga, fx_inv.g2a)
+    assert_not_subtype(fx_inv.ga, fx_inv.gb)
+    assert_not_subtype(fx_inv.gb, fx_inv.ga)
 
-    def test_simple_generic_instance_subtyping_contravariant(self) -> None:
-        self.assert_subtype(self.fx_contra.ga, self.fx_contra.ga)
-        self.assert_subtype(self.fx_contra.hab, self.fx_contra.hab)
 
-        self.assert_not_subtype(self.fx_contra.ga, self.fx_contra.g2a)
-        self.assert_subtype(self.fx_contra.ga, self.fx_contra.gb)
-        self.assert_not_subtype(self.fx_contra.gb, self.fx_contra.ga)
+def test_simple_generic_instance_subtyping_covariant(fx) -> None:
+    assert_subtype(fx.ga, fx.ga)
+    assert_subtype(fx.hab, fx.hab)
 
-    def test_generic_subtyping_with_inheritance_invariant(self) -> None:
-        self.assert_subtype(self.fx.gsab, self.fx.gb)
-        self.assert_not_subtype(self.fx.gsab, self.fx.ga)
-        self.assert_not_subtype(self.fx.gsaa, self.fx.gb)
+    assert_not_subtype(fx.ga, fx.g2a)
+    assert_not_subtype(fx.ga, fx.gb)
+    assert_subtype(fx.gb, fx.ga)
 
-    def test_generic_subtyping_with_inheritance_covariant(self) -> None:
-        self.assert_subtype(self.fx_co.gsab, self.fx_co.gb)
-        self.assert_subtype(self.fx_co.gsab, self.fx_co.ga)
-        self.assert_not_subtype(self.fx_co.gsaa, self.fx_co.gb)
 
-    def test_generic_subtyping_with_inheritance_contravariant(self) -> None:
-        self.assert_subtype(self.fx_contra.gsab, self.fx_contra.gb)
-        self.assert_not_subtype(self.fx_contra.gsab, self.fx_contra.ga)
-        self.assert_subtype(self.fx_contra.gsaa, self.fx_contra.gb)
+def test_simple_generic_instance_subtyping_contravariant(fx_contra) -> None:
+    assert_subtype(fx_contra.ga, fx_contra.ga)
+    assert_subtype(fx_contra.hab, fx_contra.hab)
 
-    def test_interface_subtyping(self) -> None:
-        self.assert_subtype(self.fx.e, self.fx.f)
-        self.assert_equivalent(self.fx.f, self.fx.f)
-        self.assert_not_subtype(self.fx.a, self.fx.f)
+    assert_not_subtype(fx_contra.ga, fx_contra.g2a)
+    assert_subtype(fx_contra.ga, fx_contra.gb)
+    assert_not_subtype(fx_contra.gb, fx_contra.ga)
 
-    def test_generic_interface_subtyping(self) -> None:
-        # TODO make this work
-        self.skip()
 
-        fx2 = InterfaceTypeFixture()
+def test_generic_subtyping_with_inheritance_invariant(fx_inv) -> None:
+    assert_subtype(fx_inv.gsab, fx_inv.gb)
+    assert_not_subtype(fx_inv.gsab, fx_inv.ga)
+    assert_not_subtype(fx_inv.gsaa, fx_inv.gb)
 
-        self.assert_subtype(fx2.m1, fx2.gfa)
-        self.assert_not_subtype(fx2.m1, fx2.gfb)
 
-        self.assert_equivalent(fx2.gfa, fx2.gfa)
+def test_generic_subtyping_with_inheritance_covariant(fx) -> None:
+    assert_subtype(fx.gsab, fx.gb)
+    assert_subtype(fx.gsab, fx.ga)
+    assert_not_subtype(fx.gsaa, fx.gb)
 
-    def test_basic_callable_subtyping(self) -> None:
-        self.assert_strict_subtype(self.fx.callable(self.fx.o, self.fx.d),
-                                   self.fx.callable(self.fx.a, self.fx.d))
-        self.assert_strict_subtype(self.fx.callable(self.fx.d, self.fx.b),
-                                   self.fx.callable(self.fx.d, self.fx.a))
 
-        self.assert_strict_subtype(self.fx.callable(self.fx.a, self.fx.nonet),
-                                   self.fx.callable(self.fx.a, self.fx.a))
+def test_generic_subtyping_with_inheritance_contravariant(fx_contra) -> None:
+    assert_subtype(fx_contra.gsab, fx_contra.gb)
+    assert_not_subtype(fx_contra.gsab, fx_contra.ga)
+    assert_subtype(fx_contra.gsaa, fx_contra.gb)
 
-        self.assert_unrelated(
-            self.fx.callable(self.fx.a, self.fx.a, self.fx.a),
-            self.fx.callable(self.fx.a, self.fx.a))
 
-    def test_default_arg_callable_subtyping(self) -> None:
-        self.assert_strict_subtype(
-            self.fx.callable_default(1, self.fx.a, self.fx.d, self.fx.a),
-            self.fx.callable(self.fx.a, self.fx.d, self.fx.a))
+def test_interface_subtyping(fx_inv) -> None:
+    assert_subtype(fx_inv.e, fx_inv.f)
+    assert_equivalent(fx_inv.f, fx_inv.f)
+    assert_not_subtype(fx_inv.a, fx_inv.f)
 
-        self.assert_strict_subtype(
-            self.fx.callable_default(1, self.fx.a, self.fx.d, self.fx.a),
-            self.fx.callable(self.fx.a, self.fx.a))
 
-        self.assert_strict_subtype(
-            self.fx.callable_default(0, self.fx.a, self.fx.d, self.fx.a),
-            self.fx.callable_default(1, self.fx.a, self.fx.d, self.fx.a))
+@pytest.mark.skip(reason="TODO")
+def test_generic_interface_subtyping() -> None:
+    # TODO make this work
+    fx2 = InterfaceTypeFixture()
 
-        self.assert_unrelated(
-            self.fx.callable_default(1, self.fx.a, self.fx.d, self.fx.a),
-            self.fx.callable(self.fx.d, self.fx.d, self.fx.a))
+    assert_subtype(fx2.m1, fx2.gfa)
+    assert_not_subtype(fx2.m1, fx2.gfb)
 
-        self.assert_unrelated(
-            self.fx.callable_default(0, self.fx.a, self.fx.d, self.fx.a),
-            self.fx.callable_default(1, self.fx.a, self.fx.a, self.fx.a))
+    assert_equivalent(fx2.gfa, fx2.gfa)
 
-        self.assert_unrelated(
-            self.fx.callable_default(1, self.fx.a, self.fx.a),
-            self.fx.callable(self.fx.a, self.fx.a, self.fx.a))
 
-    def test_var_arg_callable_subtyping_1(self) -> None:
-        self.assert_strict_subtype(
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.a),
-            self.fx.callable_var_arg(0, self.fx.b, self.fx.a))
+def test_basic_callable_subtyping(fx_inv) -> None:
+    assert_strict_subtype(fx_inv.callable(fx_inv.o, fx_inv.d),
+                               fx_inv.callable(fx_inv.a, fx_inv.d))
+    assert_strict_subtype(fx_inv.callable(fx_inv.d, fx_inv.b),
+                               fx_inv.callable(fx_inv.d, fx_inv.a))
 
-    def test_var_arg_callable_subtyping_2(self) -> None:
-        self.assert_strict_subtype(
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.a),
-            self.fx.callable(self.fx.b, self.fx.a))
+    assert_strict_subtype(fx_inv.callable(fx_inv.a, fx_inv.nonet),
+                               fx_inv.callable(fx_inv.a, fx_inv.a))
 
-    def test_var_arg_callable_subtyping_3(self) -> None:
-        self.assert_strict_subtype(
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.a),
-            self.fx.callable(self.fx.a))
+    assert_unrelated(
+        fx_inv.callable(fx_inv.a, fx_inv.a, fx_inv.a),
+        fx_inv.callable(fx_inv.a, fx_inv.a))
 
-    def test_var_arg_callable_subtyping_4(self) -> None:
-        self.assert_strict_subtype(
-            self.fx.callable_var_arg(1, self.fx.a, self.fx.d, self.fx.a),
-            self.fx.callable(self.fx.b, self.fx.a))
 
-    def test_var_arg_callable_subtyping_5(self) -> None:
-        self.assert_strict_subtype(
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.d, self.fx.a),
-            self.fx.callable(self.fx.b, self.fx.a))
+def test_default_arg_callable_subtyping(fx_inv) -> None:
+    assert_strict_subtype(
+        fx_inv.callable_default(1, fx_inv.a, fx_inv.d, fx_inv.a),
+        fx_inv.callable(fx_inv.a, fx_inv.d, fx_inv.a))
 
-    def test_var_arg_callable_subtyping_6(self) -> None:
-        self.assert_strict_subtype(
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.f, self.fx.d),
-            self.fx.callable_var_arg(0, self.fx.b, self.fx.e, self.fx.d))
+    assert_strict_subtype(
+        fx_inv.callable_default(1, fx_inv.a, fx_inv.d, fx_inv.a),
+        fx_inv.callable(fx_inv.a, fx_inv.a))
 
-    def test_var_arg_callable_subtyping_7(self) -> None:
-        self.assert_not_subtype(
-            self.fx.callable_var_arg(0, self.fx.b, self.fx.d),
-            self.fx.callable(self.fx.a, self.fx.d))
+    assert_strict_subtype(
+        fx_inv.callable_default(0, fx_inv.a, fx_inv.d, fx_inv.a),
+        fx_inv.callable_default(1, fx_inv.a, fx_inv.d, fx_inv.a))
 
-    def test_var_arg_callable_subtyping_8(self) -> None:
-        self.assert_not_subtype(
-            self.fx.callable_var_arg(0, self.fx.b, self.fx.d),
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.a, self.fx.d))
-        self.assert_subtype(
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.d),
-            self.fx.callable_var_arg(0, self.fx.b, self.fx.b, self.fx.d))
+    assert_unrelated(
+        fx_inv.callable_default(1, fx_inv.a, fx_inv.d, fx_inv.a),
+        fx_inv.callable(fx_inv.d, fx_inv.d, fx_inv.a))
 
-    def test_var_arg_callable_subtyping_9(self) -> None:
-        self.assert_not_subtype(
-            self.fx.callable_var_arg(0, self.fx.b, self.fx.b, self.fx.d),
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.d))
-        self.assert_subtype(
-            self.fx.callable_var_arg(0, self.fx.a, self.fx.a, self.fx.d),
-            self.fx.callable_var_arg(0, self.fx.b, self.fx.d))
+    assert_unrelated(
+        fx_inv.callable_default(0, fx_inv.a, fx_inv.d, fx_inv.a),
+        fx_inv.callable_default(1, fx_inv.a, fx_inv.a, fx_inv.a))
 
-    def test_type_callable_subtyping(self) -> None:
-        self.assert_subtype(
-            self.fx.callable_type(self.fx.d, self.fx.a), self.fx.type_type)
+    assert_unrelated(
+        fx_inv.callable_default(1, fx_inv.a, fx_inv.a),
+        fx_inv.callable(fx_inv.a, fx_inv.a, fx_inv.a))
 
-        self.assert_strict_subtype(
-            self.fx.callable_type(self.fx.d, self.fx.b),
-            self.fx.callable(self.fx.d, self.fx.a))
 
-        self.assert_strict_subtype(self.fx.callable_type(self.fx.a, self.fx.b),
-                                   self.fx.callable(self.fx.a, self.fx.b))
+def test_var_arg_callable_subtyping_1(fx_inv) -> None:
+    assert_strict_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.a),
+        fx_inv.callable_var_arg(0, fx_inv.b, fx_inv.a))
 
-    # IDEA: Maybe add these test cases (they are tested pretty well in type
-    #       checker tests already):
-    #  * more interface subtyping test cases
-    #  * more generic interface subtyping test cases
-    #  * type variables
-    #  * tuple types
-    #  * None type
-    #  * any type
-    #  * generic function types
 
-    def assert_subtype(self, s: Type, t: Type) -> None:
-        assert_true(is_subtype(s, t), '{} not subtype of {}'.format(s, t))
+def test_var_arg_callable_subtyping_2(fx_inv) -> None:
+    assert_strict_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.a),
+        fx_inv.callable(fx_inv.b, fx_inv.a))
 
-    def assert_not_subtype(self, s: Type, t: Type) -> None:
-        assert_true(not is_subtype(s, t), '{} subtype of {}'.format(s, t))
 
-    def assert_strict_subtype(self, s: Type, t: Type) -> None:
-        self.assert_subtype(s, t)
-        self.assert_not_subtype(t, s)
+def test_var_arg_callable_subtyping_3(fx_inv) -> None:
+    assert_strict_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.a),
+        fx_inv.callable(fx_inv.a))
 
-    def assert_equivalent(self, s: Type, t: Type) -> None:
-        self.assert_subtype(s, t)
-        self.assert_subtype(t, s)
 
-    def assert_unrelated(self, s: Type, t: Type) -> None:
-        self.assert_not_subtype(s, t)
-        self.assert_not_subtype(t, s)
+def test_var_arg_callable_subtyping_4(fx_inv) -> None:
+    assert_strict_subtype(
+        fx_inv.callable_var_arg(1, fx_inv.a, fx_inv.d, fx_inv.a),
+        fx_inv.callable(fx_inv.b, fx_inv.a))
+
+
+def test_var_arg_callable_subtyping_5(fx_inv) -> None:
+    assert_strict_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.d, fx_inv.a),
+        fx_inv.callable(fx_inv.b, fx_inv.a))
+
+
+def test_var_arg_callable_subtyping_6(fx_inv) -> None:
+    assert_strict_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.f, fx_inv.d),
+        fx_inv.callable_var_arg(0, fx_inv.b, fx_inv.e, fx_inv.d))
+
+
+def test_var_arg_callable_subtyping_7(fx_inv) -> None:
+    assert_not_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.b, fx_inv.d),
+        fx_inv.callable(fx_inv.a, fx_inv.d))
+
+
+def test_var_arg_callable_subtyping_8(fx_inv) -> None:
+    assert_not_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.b, fx_inv.d),
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.a, fx_inv.d))
+    assert_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.d),
+        fx_inv.callable_var_arg(0, fx_inv.b, fx_inv.b, fx_inv.d))
+
+
+def test_var_arg_callable_subtyping_9(fx_inv) -> None:
+    assert_not_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.b, fx_inv.b, fx_inv.d),
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.d))
+    assert_subtype(
+        fx_inv.callable_var_arg(0, fx_inv.a, fx_inv.a, fx_inv.d),
+        fx_inv.callable_var_arg(0, fx_inv.b, fx_inv.d))
+
+
+def test_type_callable_subtyping(fx_inv) -> None:
+    assert_subtype(
+        fx_inv.callable_type(fx_inv.d, fx_inv.a), fx_inv.type_type)
+
+    assert_strict_subtype(
+        fx_inv.callable_type(fx_inv.d, fx_inv.b),
+        fx_inv.callable(fx_inv.d, fx_inv.a))
+
+    assert_strict_subtype(fx_inv.callable_type(fx_inv.a, fx_inv.b),
+                               fx_inv.callable(fx_inv.a, fx_inv.b))
+
+# IDEA: Maybe add these test cases (they are tested pretty well in type
+#       checker tests already):
+#  * more interface subtyping test cases
+#  * more generic interface subtyping test cases
+#  * type variables
+#  * tuple types
+#  * None type
+#  * any type
+#  * generic function types
+
+
+def assert_subtype(s: Type, t: Type) -> None:
+    assert_true(is_subtype(s, t), '{} not subtype of {}'.format(s, t))
+
+
+def assert_not_subtype(s: Type, t: Type) -> None:
+    assert_true(not is_subtype(s, t), '{} subtype of {}'.format(s, t))
+
+
+def assert_strict_subtype(s: Type, t: Type) -> None:
+    assert_subtype(s, t)
+    assert_not_subtype(t, s)
+
+
+def assert_equivalent(s: Type, t: Type) -> None:
+    assert_subtype(s, t)
+    assert_subtype(t, s)
+
+
+def assert_unrelated(s: Type, t: Type) -> None:
+    assert_not_subtype(s, t)
+    assert_not_subtype(t, s)
