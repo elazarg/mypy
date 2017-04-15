@@ -10,17 +10,14 @@ information.
 import os.path
 import re
 import shutil
+
 from typing import List, Tuple, Dict
 
-from mypy import build
-from mypy.build import BuildManager, BuildSource, Graph
-from mypy.errors import CompileError
-from mypy.options import Options
 from mypy.server.update import FineGrainedBuildManager
-from mypy.test.config import test_temp_dir, test_data_prefix
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test.helpers import assert_string_arrays_equal
-
+from mypy.unit.config import test_temp_dir, test_data_prefix
+from mypy.unit.helpers import assert_string_arrays_equal
+from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
+from mypy.unit.builder import perform_build
 
 files = [
     'fine-grained.test'
@@ -38,7 +35,8 @@ class FineGrainedSuite(DataSuite):
 
     def run_case(self, testcase: DataDrivenTestCase) -> None:
         main_src = '\n'.join(testcase.input)
-        messages, manager, graph = self.build(main_src)
+        result = perform_build(main_src)
+        messages, manager, graph = result.errors, result.manager, result.graph
 
         a = []
         if messages:
@@ -68,20 +66,6 @@ class FineGrainedSuite(DataSuite):
             testcase.output, a,
             'Invalid output ({}, line {})'.format(testcase.file,
                                                   testcase.line))
-
-    def build(self, source: str) -> Tuple[List[str], BuildManager, Graph]:
-        options = Options()
-        options.use_builtins_fixtures = True
-        options.show_traceback = True
-        try:
-            result = build.build(sources=[BuildSource('main', None, source)],
-                                 options=options,
-                                 alt_lib_path=test_temp_dir)
-        except CompileError as e:
-            # TODO: We need a manager and a graph in this case as well
-            assert False, str('\n'.join(e.messages))
-            return e.messages, None, None
-        return result.errors, result.manager, result.graph
 
 
 def find_steps() -> List[List[Tuple[str, str]]]:

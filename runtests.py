@@ -23,17 +23,16 @@ if True:
     sys.path[0:0] = [v for v in [join('lib-typing', v) for v in get_versions()] if isdir(v)]
     # Now `typing` is available.
 
-
-from typing import List, Optional, Set, Iterable
-
-from mypy.waiter import Waiter, LazySubprocess
-from mypy import util
-from mypy.test.config import test_data_prefix
-from mypy.test.testpythoneval import python_eval_files, python_34_eval_files
-
 import itertools
 import os
 import re
+
+from typing import List, Optional, Set, Iterable
+
+from mypy import util
+from mypy.test.testpythoneval import python_eval_files, python_34_eval_files
+from mypy.unit.config import test_data_prefix
+from mypy.waiter import Waiter, LazySubprocess
 
 
 # Ideally, all tests would be `discover`able so that they can be driven

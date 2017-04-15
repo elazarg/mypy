@@ -18,12 +18,11 @@ import sys
 
 from typing import Dict, List, Tuple
 
-from mypy.test.helpers import SkipTestCaseException
-from mypy.test.config import test_data_prefix, test_temp_dir
-from mypy.test.data import DataSuite, DataDrivenTestCase, parse_test_cases
-from mypy.test.helpers import assert_string_arrays_equal
 from mypy.util import try_find_python2_interpreter
 
+from mypy.unit.config import test_data_prefix, test_temp_dir
+from mypy.unit.helpers import SkipTestCaseException, assert_string_arrays_equal
+from mypy.unit.data import DataSuite, DataDrivenTestCase, parse_test_cases
 
 # Files which contain test case descriptions.
 python_eval_files = ['pythoneval.test',

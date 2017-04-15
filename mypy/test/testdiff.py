@@ -1,18 +1,14 @@
 """Test cases for AST diff (used for fine-grained incremental checking)"""
 
 import os.path
-from typing import List, Tuple, Dict
 
-from mypy import build
-from mypy.build import BuildSource
-from mypy.errors import CompileError
-from mypy.nodes import MypyFile
-from mypy.options import Options
+from typing import List
+
 from mypy.server.astdiff import compare_symbol_tables
-from mypy.test.config import test_temp_dir, test_data_prefix
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test.helpers import assert_string_arrays_equal
-
+from mypy.unit.config import test_temp_dir, test_data_prefix
+from mypy.unit.helpers import assert_string_arrays_equal
+from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
+from mypy.unit.builder import perform_build
 
 files = [
     'diff.test'
@@ -33,8 +29,10 @@ class ASTDiffSuite(DataSuite):
         files_dict = dict(testcase.files)
         second_src = files_dict['tmp/next.py']
 
-        messages1, files1 = perform_build(first_src)
-        messages2, files2 = perform_build(second_src)
+        result1 = perform_build(first_src)
+        messages1, files1 = result1.errors, result1.files
+        result2 = perform_build(second_src)
+        messages2, files2 = result2.errors, result2.files
 
         a = []
         if messages1:
@@ -54,17 +52,3 @@ class ASTDiffSuite(DataSuite):
             testcase.output, a,
             'Invalid output ({}, line {})'.format(testcase.file,
                                                   testcase.line))
-
-
-def perform_build(source: str) -> Tuple[List[str], Dict[str, MypyFile]]:
-    options = Options()
-    options.use_builtins_fixtures = True
-    options.show_traceback = True
-    try:
-        result = build.build(sources=[BuildSource('main', None, source)],
-                             options=options,
-                             alt_lib_path=test_temp_dir)
-    except CompileError as e:
-        # TODO: Is it okay to return None?
-        return e.messages, None
-    return result.errors, result.files

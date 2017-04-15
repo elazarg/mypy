@@ -6,14 +6,14 @@ from typing import Dict, List
 
 from mypy import build
 from mypy.build import BuildSource
-from mypy.test.helpers import (
-    assert_string_arrays_equal, normalize_error_messages, casefile_pyversion,
-)
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test.config import test_data_prefix, test_temp_dir
 from mypy.errors import CompileError
 from mypy.nodes import TypeInfo
 from mypy.options import Options
+from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
+from mypy.unit.config import test_data_prefix, test_temp_dir
+from mypy.unit.helpers import (
+    assert_string_arrays_equal, normalize_error_messages, casefile_pyversion,
+)
 
 
 # Semantic analyzer test cases: dump parse tree

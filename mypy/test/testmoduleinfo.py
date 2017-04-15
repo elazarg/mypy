@@ -1,5 +1,5 @@
 from mypy import moduleinfo
-from mypy.test.helpers import assert_true, assert_false
+from mypy.unit.helpers import assert_true, assert_false
 
 
 def test_is_in_module_collection() -> None:

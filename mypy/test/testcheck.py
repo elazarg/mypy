@@ -4,21 +4,20 @@ import os.path
 import re
 import shutil
 
+from mypy.unit.config import test_temp_dir, test_data_prefix
+from mypy.unit.helpers import (
+    assert_string_arrays_equal, normalize_error_messages,
+    casefile_pyversion, AssertionFailure,
+)
 from typing import Dict, List, Optional, Set, Tuple
 
 from mypy import build, defaults
-from mypy.main import process_options
-from mypy.build import BuildSource, find_module_clear_caches
-from mypy.test.config import test_temp_dir, test_data_prefix
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test.helpers import (
-    assert_string_arrays_equal, normalize_error_messages,
-    casefile_pyversion, AssertionFailure
-)
-from mypy.errors import CompileError
-from mypy.options import Options
-
 from mypy import experiments
+from mypy.build import BuildSource, find_module_clear_caches
+from mypy.errors import CompileError
+from mypy.main import process_options
+from mypy.options import Options
+from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
 
 # List of files that contain test case descriptions.
 files = [

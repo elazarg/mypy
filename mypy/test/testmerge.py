@@ -2,24 +2,22 @@
 
 import os.path
 import shutil
+
 from typing import List, Tuple, Dict
 
-from mypy import build
-from mypy.build import BuildManager, BuildSource, State
-from mypy.errors import CompileError
+from mypy.util import short_type
+from mypy.build import BuildManager, State
 from mypy.nodes import (
-    Node, MypyFile, SymbolTable, SymbolTableNode, TypeInfo, Expression
+    Node, MypyFile, SymbolTable, SymbolTableNode, TypeInfo, Expression,
 )
-from mypy.options import Options
 from mypy.server.subexpr import get_subexpressions
 from mypy.server.update import build_incremental_step, replace_modules_with_new_variants
 from mypy.strconv import StrConv
-from mypy.test.config import test_temp_dir, test_data_prefix
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test.helpers import assert_string_arrays_equal
 from mypy.types import TypeStrVisitor, Type
-from mypy.util import short_type
-
+from mypy.unit.helpers import assert_string_arrays_equal
+from mypy.unit.config import test_temp_dir, test_data_prefix
+from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
+from mypy.unit.builder import perform_build
 
 files = [
     'merge.test'
@@ -36,9 +34,7 @@ AST = 'AST'
 class ASTMergeSuite(DataSuite):
     def __init__(self, *, update_data: bool) -> None:
         super().__init__(update_data=update_data)
-        self.str_conv = StrConv(show_ids=True)
-        self.id_mapper = self.str_conv.id_mapper
-        self.type_str_conv = TypeStrVisitor(self.id_mapper)
+        self.dumper = Dumper()
 
     @classmethod
     def cases(cls) -> List[DataDrivenTestCase]:
@@ -62,7 +58,8 @@ class ASTMergeSuite(DataSuite):
             kind = AST
 
         main_src = '\n'.join(testcase.input)
-        messages, manager, graph = self.build(main_src)
+        result = perform_build(main_src)
+        messages, manager, graph = result.errors, result.manager, result.graph
 
         a = []
         if messages:
@@ -71,12 +68,12 @@ class ASTMergeSuite(DataSuite):
         shutil.copy(os.path.join(test_temp_dir, 'target.py.next'),
                     os.path.join(test_temp_dir, 'target.py'))
 
-        a.extend(self.dump(manager.modules, graph, kind))
+        a.extend(self.dumper.dump(manager.modules, graph, kind))
 
         old_modules = dict(manager.modules)
         old_subexpr = get_subexpressions(old_modules['target'])
 
-        new_file, new_types = self.build_increment(manager, 'target')
+        new_file, new_types = build_increment(manager, 'target')
         replace_modules_with_new_variants(manager,
                                           graph,
                                           old_modules,
@@ -84,7 +81,7 @@ class ASTMergeSuite(DataSuite):
                                           {'target': new_types})
 
         a.append('==>')
-        a.extend(self.dump(manager.modules, graph, kind))
+        a.extend(self.dumper.dump(manager.modules, graph, kind))
 
         for expr in old_subexpr:
             # Verify that old AST nodes are removed from the expression type map.
@@ -95,24 +92,12 @@ class ASTMergeSuite(DataSuite):
             'Invalid output ({}, line {})'.format(testcase.file,
                                                   testcase.line))
 
-    def build(self, source: str) -> Tuple[List[str], BuildManager, Dict[str, State]]:
-        options = Options()
-        options.use_builtins_fixtures = True
-        options.show_traceback = True
-        try:
-            result = build.build(sources=[BuildSource('main', None, source)],
-                                 options=options,
-                                 alt_lib_path=test_temp_dir)
-        except CompileError as e:
-            # TODO: Is it okay to return None?
-            return e.messages, None, {}
-        return result.errors, result.manager, result.graph
 
-    def build_increment(self, manager: BuildManager,
-                        module_id: str) -> Tuple[MypyFile,
-                                                 Dict[Expression, Type]]:
-        module_dict, type_maps = build_incremental_step(manager, [module_id])
-        return module_dict[module_id], type_maps[module_id]
+class Dumper:
+    def __init__(self) -> None:
+        self.str_conv = StrConv(show_ids=True)
+        self.id_mapper = self.str_conv.id_mapper
+        self.type_str_conv = TypeStrVisitor(self.id_mapper)
 
     def dump(self,
              modules: Dict[str, MypyFile],
@@ -202,3 +187,10 @@ class ASTMergeSuite(DataSuite):
                                                 expr.line,
                                                 typ.accept(self.type_str_conv)))
         return a
+
+
+def build_increment(manager: BuildManager,
+                    module_id: str) -> Tuple[MypyFile,
+                                             Dict[Expression, Type]]:
+    module_dict, type_maps = build_incremental_step(manager, [module_id])
+    return module_dict[module_id], type_maps[module_id]

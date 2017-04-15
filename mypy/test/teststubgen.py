@@ -4,20 +4,20 @@ import os.path
 import shutil
 import sys
 import tempfile
-from types import ModuleType
 
+from types import ModuleType
 from typing import List, Tuple
 
-from mypy.test.helpers import assert_string_arrays_equal, assert_equal
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test import config
 from mypy.errors import CompileError
 from mypy.stubgen import generate_stub, generate_stub_for_module
 from mypy.stubgenc import generate_c_type_stub, infer_method_sig
 from mypy.stubutil import (
     parse_signature, parse_all_signatures, build_signature, find_unique_signatures,
-    infer_sig_from_docstring
+    infer_sig_from_docstring,
 )
+from mypy.unit import config
+from mypy.unit.helpers import assert_string_arrays_equal, assert_equal
+from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
 
 
 def test_parse_signature() -> None:

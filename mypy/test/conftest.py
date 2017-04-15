@@ -6,6 +6,10 @@ from mypy.types import UnboundType, TupleType, TypeVarDef, CallableType, Type
 
 import pytest  # type: ignore
 
+pytest_plugins = [
+    'mypy.unit.data',
+]
+
 
 @pytest.fixture
 def x() -> UnboundType:

@@ -5,9 +5,9 @@ defaults, and that argparse doesn't assign any new members to the Options
 object it creates.
 """
 
-from mypy.test.helpers import assert_equal
-from mypy.options import Options
 from mypy.main import process_options
+from mypy.options import Options
+from mypy.unit.helpers import assert_equal
 
 
 def test_coherence() -> None:

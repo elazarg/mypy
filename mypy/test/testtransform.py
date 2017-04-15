@@ -6,13 +6,13 @@ from typing import List
 
 from mypy import build
 from mypy.build import BuildSource
-from mypy.test.helpers import assert_string_arrays_equal, casefile_pyversion
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test.config import test_data_prefix, test_temp_dir
 from mypy.errors import CompileError
+from mypy.options import Options
 from mypy.treetransform import TransformVisitor
 from mypy.types import Type
-from mypy.options import Options
+from mypy.unit.config import test_data_prefix, test_temp_dir
+from mypy.unit.helpers import assert_string_arrays_equal, casefile_pyversion
+from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
 
 
 # Reuse semantic analysis test cases.

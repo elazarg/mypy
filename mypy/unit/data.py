@@ -1,17 +1,17 @@
 """Utilities for processing .test files containing test case descriptions."""
 
-import os.path
 import os
-from os import remove, rmdir
+import os.path
 import posixpath
-import shutil
-
 import re
-from typing import Callable, List, Tuple, Set, Optional, Dict, Iterator, Any, Iterable
+import shutil
 from abc import abstractmethod
+from os import remove, rmdir
 
-from mypy.test.helpers import ProtoTestCase, SkipTestCaseException
 import pytest  # type: ignore  # no pytest in typeshed
+from typing import Callable, List, Tuple, Set, Optional, Dict, Iterator, Any, Iterable
+
+from mypy.unit.helpers import ProtoTestCase, SkipTestCaseException
 
 
 def parse_test_cases(

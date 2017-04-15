@@ -9,12 +9,11 @@ import re
 import subprocess
 import sys
 
+from mypy.unit.config import test_data_prefix, test_temp_dir
+from mypy.unit.helpers import assert_string_arrays_equal, AssertionFailure
 from typing import List
 
-from mypy.test.config import test_data_prefix, test_temp_dir
-from mypy.test.data import fix_cobertura_filename
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test.helpers import assert_string_arrays_equal, AssertionFailure
+from mypy.unit.data import fix_cobertura_filename, parse_test_cases, DataDrivenTestCase, DataSuite
 from mypy.version import __version__, base_version
 
 # Path to Python 3 interpreter

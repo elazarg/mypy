@@ -2,20 +2,17 @@
 
 from typing import List, Union, Tuple
 
-from mypy.test.helpers import assert_equal
 from mypy.constraints import SUPERTYPE_OF, SUBTYPE_OF, Constraint
 from mypy.solve import solve_constraints
-from mypy.typefixture import TypeFixture
 from mypy.types import Type, TypeVarType, TypeVarId
-
-fx = TypeFixture()
+from mypy.unit.helpers import assert_equal
 
 
 def test_empty_input() -> None:
     assert_solve([], [], [])
 
 
-def test_simple_supertype_constraints() -> None:
+def test_simple_supertype_constraints(fx) -> None:
     assert_solve([fx.t.id],
                  [supc(fx.t, fx.a)],
                  [(fx.a, fx.o)])
@@ -25,7 +22,7 @@ def test_simple_supertype_constraints() -> None:
                  [(fx.a, fx.o)])
 
 
-def test_simple_subtype_constraints() -> None:
+def test_simple_subtype_constraints(fx) -> None:
     assert_solve([fx.t.id],
                  [subc(fx.t, fx.a)],
                  [fx.a])
@@ -35,14 +32,14 @@ def test_simple_subtype_constraints() -> None:
                  [fx.b])
 
 
-def test_both_kinds_of_constraints() -> None:
+def test_both_kinds_of_constraints(fx) -> None:
     assert_solve([fx.t.id],
                  [supc(fx.t, fx.b),
                  subc(fx.t, fx.a)],
                  [(fx.b, fx.a)])
 
 
-def test_unsatisfiable_constraints() -> None:
+def test_unsatisfiable_constraints(fx) -> None:
     # The constraints are impossible to satisfy.
     assert_solve([fx.t.id],
                  [supc(fx.t, fx.a),
@@ -50,14 +47,14 @@ def test_unsatisfiable_constraints() -> None:
                  [None])
 
 
-def test_exactly_specified_result() -> None:
+def test_exactly_specified_result(fx) -> None:
     assert_solve([fx.t.id],
                  [supc(fx.t, fx.b),
                  subc(fx.t, fx.b)],
                  [(fx.b, fx.b)])
 
 
-def test_multiple_variables() -> None:
+def test_multiple_variables(fx) -> None:
     assert_solve([fx.t.id, fx.s.id],
                  [supc(fx.t, fx.b),
                  supc(fx.s, fx.c),
@@ -65,7 +62,7 @@ def test_multiple_variables() -> None:
                  [(fx.b, fx.a), (fx.c, fx.o)])
 
 
-def test_no_constraints_for_var() -> None:
+def test_no_constraints_for_var(fx) -> None:
     assert_solve([fx.t.id],
                  [],
                  [fx.uninhabited])
@@ -77,7 +74,7 @@ def test_no_constraints_for_var() -> None:
                  [fx.uninhabited, (fx.a, fx.o)])
 
 
-def test_simple_constraints_with_dynamic_type() -> None:
+def test_simple_constraints_with_dynamic_type(fx) -> None:
     assert_solve([fx.t.id],
                  [supc(fx.t, fx.anyt)],
                  [(fx.anyt, fx.anyt)])
@@ -104,7 +101,7 @@ def test_simple_constraints_with_dynamic_type() -> None:
     # TODO: figure out what this should be after changes to meet(any, X)
 
 
-def test_both_normal_and_any_types_in_results() -> None:
+def test_both_normal_and_any_types_in_results(fx) -> None:
     # If one of the bounds is any, we promote the other bound to
     # any as well, since otherwise the type range does not make sense.
     assert_solve([fx.t.id],

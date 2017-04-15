@@ -2,14 +2,14 @@
 
 from typing import AbstractSet, Dict, Set, List
 
-from mypy.test.helpers import assert_equal
 from mypy.build import (
     BuildManager, State, BuildSourceSet,
-    topsort, strongly_connected_components, sorted_components, order_ascc
+    topsort, strongly_connected_components, sorted_components, order_ascc,
 )
-from mypy.version import __version__
 from mypy.options import Options
 from mypy.report import Reports
+from mypy.unit.helpers import assert_equal
+from mypy.version import __version__
 
 
 def test_topsort() -> None:

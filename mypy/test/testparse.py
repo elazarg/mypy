@@ -2,15 +2,15 @@
 
 import os.path
 
+from mypy.unit.helpers import assert_string_arrays_equal, AssertionFailure
 from typing import List
 
 from mypy import defaults
-from mypy.test.helpers import assert_string_arrays_equal, AssertionFailure
-from mypy.test.data import parse_test_cases, DataDrivenTestCase, DataSuite
-from mypy.test import config
-from mypy.parse import parse
 from mypy.errors import CompileError
 from mypy.options import Options
+from mypy.parse import parse
+from mypy.unit import config
+from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
 
 
 parse_files = ['parse.test',
