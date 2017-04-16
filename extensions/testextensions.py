@@ -7,7 +7,7 @@ except ImportError:
     import collections as collections_abc  # type: ignore # PY32 and earlier
 from unittest import TestCase, main, skipUnless
 sys.path[0:0] = ['extensions']
-from mypy_extensions import TypedDict
+from .mypy_extensions import TypedDict
 
 
 class BaseTestCase(TestCase):
