@@ -14,6 +14,7 @@ from mypy.unit.config import test_data_prefix, test_temp_dir
 from mypy.unit.helpers import (
     assert_string_arrays_equal, normalize_error_messages, casefile_pyversion,
 )
+from mypy.unit.builder import perform_build
 
 
 # Semantic analyzer test cases: dump parse tree

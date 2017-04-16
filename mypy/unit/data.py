@@ -525,40 +525,6 @@ class MypyDataCase(pytest.Item):  # type: ignore  # inheriting from Any
         return "data: {}:{}:\n{}".format(self.obj.file, self.obj.line, excrepr)
 
 
-class MypyCase(pytest.Item):  # type: ignore  # inheriting from Any
-    def __init__(self, name: str, parent: 'MypyCase', obj: ProtoTestCase) -> None:
-        super().__init__(name, parent)
-        self.obj = obj
-
-    def runtest(self) -> None:
-        try:
-            self.parent.obj().run_case(self.obj)
-        except SkipTestCaseException:
-            pytest.skip()
-
-    def setup(self) -> None:
-        self.obj.set_up()
-
-    def teardown(self) -> None:
-        self.obj.tear_down()
-
-    def reportinfo(self) -> str:
-        return self.obj.name
-
-    def repr_failure(self, excinfo: Any) -> str:
-        if excinfo.errisinstance(SystemExit):
-            # We assume that before doing exit() (which raises SystemExit) we've printed
-            # enough context about what happened so that a stack trace is not useful.
-            # In particular, uncaught exceptions during semantic analysis or type checking
-            # call exit() and they already print out a stack trace.
-            excrepr = excinfo.exconly()
-        else:
-            self.parent._prunetraceback(excinfo)
-            excrepr = excinfo.getrepr(style='short')
-
-        return str(excrepr)
-
-
 class DataSuite:
     def __init__(self, *, update_data: bool = False) -> None:
         self.update_data = update_data
