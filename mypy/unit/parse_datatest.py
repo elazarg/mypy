@@ -12,17 +12,26 @@ TestItem = NamedTuple('TestItem', [
     ('id', str),
     ('arg', Optional[str]),
     ('data', List[str]),
-    ('line', int)
+    ('line', int),
+    ('lastline', int),
 ])
 
 
 def find_test_cases(text: str):
-    res = re.split(r'\[case\s*([a-zA-Z0-9_]*)(-skip)?\s*\]', text)[1:]
-    for i in range(0, len(res), 3):
-        text = res[i+2]
-        items = re.split(r'\[(.*?)(?:\s+(.*?))?\]', text)[1:]
-        yield (res[i], res[i+1],
-               [(items[j], items[j+1], items[j+2]) for j in range(0, len(items), 3)])
+    text = re.sub(r'^\[out1?\]', '[out pre]', text, flags=re.MULTILINE)
+    text = re.sub(r'^\[out2\]', '[out post]', text, flags=re.MULTILINE)
+    text = re.sub(r'^--.*?$', '', text, flags=re.MULTILINE)
+    items = re.split(r'^\[([a-zA-Z0-9_]*)\s+(\S*?)\]\s*$', text, flags=re.MULTILINE)[1:]
+    from itertools import groupby
+    c = 0
+
+    def next_case(x: Tuple[str, str, str]):
+        nonlocal c
+        if x[0] == 'case':
+            c += 1
+        return c
+    return groupby([(items[j], items[j+1], items[j+2]) for j in range(0, len(items), 3)],
+                   key=next_case)
 
 
 def parse_test_items(text):
@@ -101,7 +110,7 @@ def parse_test_data(l: List[str]) -> Iterator[TestItem]:
             if id:
                 data = collapse_line_continuation(data)
                 data = strip_list(data)
-                yield TestItem(id, arg, strip_list(data), i0 + 1)
+                yield TestItem(id, arg, strip_list(data), i0 + 1, i)
             i0 = i
             id = s[1:-1]
             arg = None
@@ -121,7 +130,7 @@ def parse_test_data(l: List[str]) -> Iterator[TestItem]:
     if id:
         data = collapse_line_continuation(data)
         data = strip_list(data)
-        yield TestItem(id, arg, data, i0 + 1)
+        yield TestItem(id, arg, data, i0 + 1, i)
 
 
 TestCaseData = NamedTuple('TestCaseData', [
@@ -231,4 +240,5 @@ if __name__ == '__main__':
     import sys
 
     with open(sys.argv[1], encoding='utf-8') as f:
-        print(list(find_test_cases(f.read()))[3])
+        for i, t in find_test_cases(f.read()):
+            print(i, list(t))

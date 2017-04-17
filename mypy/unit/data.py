@@ -5,6 +5,8 @@ import os.path
 import posixpath
 import re
 import shutil
+
+from itertools import groupby
 from abc import abstractmethod
 from os import remove, rmdir
 
@@ -12,6 +14,7 @@ import pytest  # type: ignore  # no pytest in typeshed
 from typing import Callable, List, Tuple, Set, Optional, Dict, Iterator, Any, Iterable
 
 from mypy.unit.helpers import ProtoTestCase, SkipTestCaseException
+from mypy.unit.parse_datatest import parse_test_data, TestItem
 
 
 def parse_test_cases(
@@ -25,160 +28,149 @@ def parse_test_cases(
 
     Return an array of test cases.
     """
-    if native_sep:
-        join = os.path.join
-    else:
-        join = posixpath.join  # type: ignore
     if not include_path:
         include_path = os.path.dirname(path)
     with open(path, encoding='utf-8') as f:
-        l = f.readlines()
-    for i in range(len(l)):
-        l[i] = l[i].rstrip('\n')
-    p = parse_test_data(l, path)
+        l = f.read().split('\n')
+    c = -1
+
+    def next_case(x: TestItem):
+        nonlocal c
+        if x.id == 'case':
+            c += 1
+        return c
+
+    p = groupby(parse_test_data(l), key=next_case)
     out = []  # type: List[DataDrivenTestCase]
-
-    # Process the parsed items. Each item has a header of form [id args],
-    # optionally followed by lines of text.
-    i = 0
-    while i < len(p):
-        ok = False
-        i0 = i
-        if p[i].id == 'case':
-            i += 1
-
-            files = []  # type: List[Tuple[str, str]] # path and contents
-            output_files = []  # type: List[Tuple[str, str]] # path and contents for output files
-            tcout = []  # type: List[str]  # Regular output errors
-            tcout2 = []  # type: List[str]  # Output errors for incremental, second run
-            stale_modules = None  # type: Optional[Set[str]]  # module names
-            rechecked_modules = None  # type: Optional[Set[str]]  # module names
-            while i < len(p) and p[i].id != 'case':
-                if p[i].id == 'file' or p[i].id == 'outfile':
-                    # Record an extra file needed for the test case.
-                    arg = p[i].arg
-                    assert arg is not None
-                    file_entry = (join(base_path, arg), '\n'.join(p[i].data))
-                    if p[i].id == 'file':
-                        files.append(file_entry)
-                    elif p[i].id == 'outfile':
-                        output_files.append(file_entry)
-                elif p[i].id in ('builtins', 'builtins_py2'):
-                    # Use a custom source file for the std module.
-                    arg = p[i].arg
-                    assert arg is not None
-                    mpath = join(os.path.dirname(path), arg)
-                    if p[i].id == 'builtins':
-                        fnam = 'builtins.pyi'
-                    else:
-                        # Python 2
-                        fnam = '__builtin__.pyi'
-                    with open(mpath) as f:
-                        files.append((join(base_path, fnam), f.read()))
-                elif p[i].id == 'stale':
-                    arg = p[i].arg
-                    if arg is None:
-                        stale_modules = set()
-                    else:
-                        stale_modules = {item.strip() for item in arg.split(',')}
-                elif p[i].id == 'rechecked':
-                    arg = p[i].arg
-                    if arg is None:
-                        rechecked_modules = set()
-                    else:
-                        rechecked_modules = {item.strip() for item in arg.split(',')}
-                elif p[i].id == 'out' or p[i].id == 'out1':
-                    tcout = p[i].data
-                    if native_sep and os.path.sep == '\\':
-                        tcout = [fix_win_path(line) for line in tcout]
-                    ok = True
-                elif p[i].id == 'out2':
-                    tcout2 = p[i].data
-                    if native_sep and os.path.sep == '\\':
-                        tcout2 = [fix_win_path(line) for line in tcout2]
-                    ok = True
-                else:
-                    raise ValueError(
-                        'Invalid section header {} in {} at line {}'.format(
-                            p[i].id, path, p[i].line))
-                i += 1
-
-            if rechecked_modules is None:
-                # If the set of rechecked modules isn't specified, make it the same as the set of
-                # modules with a stale public interface.
-                rechecked_modules = stale_modules
-            if (stale_modules is not None
-                    and rechecked_modules is not None
-                    and not stale_modules.issubset(rechecked_modules)):
-                raise ValueError(
-                    'Stale modules must be a subset of rechecked modules ({})'.format(path))
-
-            if optional_out:
-                ok = True
-
-            if ok:
-                input = expand_includes(p[i0].data, include_path)
-                expand_errors(input, tcout, 'main')
-                for file_path, contents in files:
-                    expand_errors(contents.split('\n'), tcout, file_path)
-                lastline = p[i].line if i < len(p) else p[i - 1].line + 9999
-                tc = DataDrivenTestCase(p[i0].arg, input, tcout, tcout2, path,
-                                        p[i0].line, lastline, perform,
-                                        files, output_files, stale_modules,
-                                        rechecked_modules, native_sep)
-                out.append(tc)
-        if not ok:
-            raise ValueError(
-                '{}, line {}: Error in test case description'.format(
-                    path, p[i0].line))
-
+    for i, items in p:
+        out.append(DataDrivenTestCase(path, list(items),
+                                      perform, base_path, optional_out, include_path, native_sep))
     return out
 
 
 class DataDrivenTestCase(ProtoTestCase):
     input = None  # type: List[str]
     output = None  # type: List[str]
+    output_files = None  # type: List[str]
 
     file = ''
     line = 0
+    lastline = 0
 
     # (file path, file content) tuples
     files = None  # type: List[Tuple[str, str]]
     expected_stale_modules = None  # type: Optional[Set[str]]
+    expected_rechecked_modules = None  # type: Optional[Set[str]]
 
     clean_up = None  # type: List[Tuple[bool, str]]
 
     def __init__(self,
-                 name: str,
-                 input: List[str],
-                 output: List[str],
-                 output2: List[str],
                  file: str,
-                 line: int,
-                 lastline: int,
+                 items: List[TestItem],
                  perform: Callable[['DataDrivenTestCase'], None],
-                 files: List[Tuple[str, str]],
-                 output_files: List[Tuple[str, str]],
-                 expected_stale_modules: Optional[Set[str]],
-                 expected_rechecked_modules: Optional[Set[str]],
+                 base_path: str = '.',
+                 optional_out: bool = False,
+                 include_path: str = None,
                  native_sep: bool = False,
                  ) -> None:
-        super().__init__(name)
-        self.input = input
-        self.output = output
-        self.output2 = output2
-        self.lastline = lastline
+        super().__init__(items[0].arg)
         self.file = file
-        self.line = line
+        self.items = items
         self.perform = perform
-        self.files = files
-        self.output_files = output_files
-        self.expected_stale_modules = expected_stale_modules
-        self.expected_rechecked_modules = expected_rechecked_modules
+
+        self.base_path = base_path
+        self.optional_out = optional_out
+        self.include_path = include_path
         self.native_sep = native_sep
+
+    def prepare_test_case(self) -> None:
+        """Process the parsed items.
+
+        Each item has a header of form [id args], optionally followed by lines of text."""
+        ok = True  # TODO: FIX
+        if self.native_sep:
+            join = os.path.join
+        else:
+            join = posixpath.join  # type: ignore
+        main = self.items[0]
+        self.files = []  # type: List[Tuple[str, str]] # path and contents for output files
+        self.output = []  # type: List[str]  # Regular output errors
+        self.output2 = []  # type: List[str]  # Output errors for incremental, second run
+        self.output_files = []  # type: List[str]
+        self.expected_stale_modules = None  # type: Optional[Set[str]]  # module names
+        self.expected_rechecked_modules = None  # type: Optional[Set[str]]  # module names
+        self.lastline = 0
+        for id, arg, data, line, lastline in self.items[1:]:
+            if id == 'file' or id == 'outfile':
+                # Record an extra file needed for the test case.
+                assert arg is not None
+                file_entry = (join(self.base_path, arg), '\n'.join(data))
+                if id == 'file':
+                    self.files.append(file_entry)
+                elif id == 'outfile':
+                    self.output_files.append(file_entry)
+            elif id in ('builtins', 'builtins_py2'):
+                # Use a custom source file for the std module.
+                assert arg is not None
+                mpath = join(os.path.dirname(self.file), arg)
+                if id == 'builtins':
+                    fnam = 'builtins.pyi'
+                else:
+                    # Python 2
+                    fnam = '__builtin__.pyi'
+                with open(mpath) as f:
+                    self.files.append((join(self.base_path, fnam), f.read()))
+            elif id == 'stale':
+                if arg is None:
+                    self.expected_stale_modules = set()
+                else:
+                    self.expected_stale_modules = {item.strip() for item in arg.split(',')}
+            elif id == 'rechecked':
+                if arg is None:
+                    self.expected_rechecked_modules = set()
+                else:
+                    self.expected_rechecked_modules = {item.strip() for item in arg.split(',')}
+            elif id == 'out' or id == 'out1':
+                self.output = data
+                if self.native_sep and os.path.sep == '\\':
+                    self.output = [fix_win_path(line) for line in self.output]
+                ok = True
+            elif id == 'out2':
+                self.output2 = data
+                if self.native_sep and os.path.sep == '\\':
+                    self.output2 = [fix_win_path(line) for line in self.output2]
+                ok = True
+            else:
+                raise ValueError(
+                    'Invalid section header {} in {} at line {}'.format(
+                        id, self.file, line))
+
+        if self.expected_rechecked_modules is None:
+            # If the set of rechecked modules isn't specified, make it the same as the set of
+            # modules with a stale public interface.
+            self.expected_rechecked_modules = self.expected_stale_modules
+        if (self.expected_stale_modules is not None
+                and self.expected_rechecked_modules is not None
+                and not self.expected_stale_modules.issubset(self.expected_rechecked_modules)):
+            raise ValueError(
+                'Stale modules must be a subset of rechecked modules ({})'.format(self.file))
+
+        if self.optional_out:
+            ok = True
+
+        if ok:
+            self.input = expand_includes(main.data, self.include_path)
+            expand_errors(self.input, self.output, 'main')
+            for file_path, contents in self.files:
+                expand_errors(contents.split('\n'), self.output, file_path)
+        else:
+            raise ValueError(
+                '{}, line {}: Error in test case description'.format(
+                    self.file, main.line))
 
     def set_up(self) -> None:
         super().set_up()
+        self.prepare_test_case()
         encountered_files = set()
         self.clean_up = []
         for path, content in self.files:
@@ -280,106 +272,6 @@ class DataDrivenTestCase(ProtoTestCase):
         data = '\n'.join(data_lines)
         with open(testcase_path, 'w') as f:
             print(data, file=f)
-
-
-class TestItem:
-    """Parsed test caseitem.
-
-    An item is of the form
-      [id arg]
-      .. data ..
-    """
-
-    id = ''
-    arg = ''  # type: Optional[str]
-
-    # Text data, array of 8-bit strings
-    data = None  # type: List[str]
-
-    file = ''
-    line = 0  # Line number in file
-
-    def __init__(self, id: str, arg: Optional[str], data: List[str], file: str,
-                 line: int) -> None:
-        self.id = id
-        self.arg = arg
-        self.data = data
-        self.file = file
-        self.line = line
-
-
-def parse_test_data(l: List[str], fnam: str) -> List[TestItem]:
-    """Parse a list of lines that represent a sequence of test items."""
-
-    ret = []  # type: List[TestItem]
-    data = []  # type: List[str]
-
-    id = None  # type: Optional[str]
-    arg = None  # type: Optional[str]
-
-    i = 0
-    i0 = 0
-    while i < len(l):
-        s = l[i].strip()
-
-        if l[i].startswith('[') and s.endswith(']') and not s.startswith('[['):
-            if id:
-                data = collapse_line_continuation(data)
-                data = strip_list(data)
-                ret.append(TestItem(id, arg, strip_list(data), fnam, i0 + 1))
-            i0 = i
-            id = s[1:-1]
-            arg = None
-            if ' ' in id:
-                arg = id[id.index(' ') + 1:]
-                id = id[:id.index(' ')]
-            data = []
-        elif l[i].startswith('[['):
-            data.append(l[i][1:])
-        elif not l[i].startswith('--'):
-            data.append(l[i])
-        elif l[i].startswith('----'):
-            data.append(l[i][2:])
-        i += 1
-
-    # Process the last item.
-    if id:
-        data = collapse_line_continuation(data)
-        data = strip_list(data)
-        ret.append(TestItem(id, arg, data, fnam, i0 + 1))
-
-    return ret
-
-
-def strip_list(l: List[str]) -> List[str]:
-    """Return a stripped copy of l.
-
-    Strip whitespace at the end of all lines, and strip all empty
-    lines from the end of the array.
-    """
-
-    r = []  # type: List[str]
-    for s in l:
-        # Strip spaces at end of line
-        r.append(re.sub(r'\s+$', '', s))
-
-    while len(r) > 0 and r[-1] == '':
-        r.pop()
-
-    return r
-
-
-def collapse_line_continuation(l: List[str]) -> List[str]:
-    r = []  # type: List[str]
-    cont = False
-    for s in l:
-        ss = re.sub(r'\\$', '', s)
-        if cont:
-            r[-1] += re.sub('^ +', '', ss)
-        else:
-            r.append(ss)
-        cont = s.endswith('\\')
-    return r
 
 
 def expand_includes(a: List[str], base_path: str) -> List[str]:
