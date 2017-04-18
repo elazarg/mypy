@@ -15,9 +15,8 @@ from mypy.stubutil import (
     parse_signature, parse_all_signatures, build_signature, find_unique_signatures,
     infer_sig_from_docstring,
 )
-from mypy.unit import config
 from mypy.unit.helpers import assert_string_arrays_equal, assert_equal
-from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
+from mypy.unit.data import MypyDataItem
 
 
 def test_parse_signature() -> None:
@@ -101,21 +100,14 @@ def test_infer_sig_from_docstring() -> None:
     assert_equal(infer_sig_from_docstring('\nfunc x', 'func'), None)
 
 
-class StubgenPythonSuite(DataSuite):
-    test_data_files = ['stubgen.test']
+class StubgenPythonSuite(MypyDataItem):
+    files = ['stubgen.test']
 
-    @classmethod
-    def cases(cls) -> List[DataDrivenTestCase]:
-        c = []  # type: List[DataDrivenTestCase]
-        for path in cls.test_data_files:
-            c += parse_test_cases(os.path.join(config.test_data_prefix, path), None)
-        return c
-
-    def run_case(self, testcase: DataDrivenTestCase) -> None:
+    def run_case(self) -> None:
         if 'stubgen-test-path' not in sys.path:
             sys.path.insert(0, 'stubgen-test-path')
         os.mkdir('stubgen-test-path')
-        source = '\n'.join(testcase.input)
+        source = '\n'.join(self.input)
         handle = tempfile.NamedTemporaryFile(prefix='prog_', suffix='.py', dir='stubgen-test-path',
                                              delete=False)
         assert os.path.isabs(handle.name)
@@ -131,16 +123,16 @@ class StubgenPythonSuite(DataSuite):
             # caches os.listdir() results in Python 3.3+ (Guido explained this to me).
             reset_importlib_caches()
             try:
-                if testcase.name.endswith('_import'):
+                if self.name.endswith('_import'):
                     generate_stub_for_module(name, out_dir, quiet=True)
                 else:
                     generate_stub(path, out_dir)
                 a = load_output(out_dir)
             except CompileError as e:
                 a = e.messages
-            assert_string_arrays_equal(testcase.output, a,
+            assert_string_arrays_equal(self.output, a,
                                        'Invalid output ({}, line {})'.format(
-                                           testcase.file, testcase.line))
+                                           self.file, self.line))
         finally:
             handle.close()
             os.unlink(handle.name)

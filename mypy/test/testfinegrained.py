@@ -14,27 +14,22 @@ import shutil
 from typing import List, Tuple, Dict
 
 from mypy.server.update import FineGrainedBuildManager
-from mypy.unit.config import test_temp_dir, test_data_prefix
+from mypy.unit.config import test_temp_dir
 from mypy.unit.helpers import assert_string_arrays_equal
-from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
+from mypy.unit.data import MypyDataItem
 from mypy.unit.builder import perform_build
 
-files = [
-    'fine-grained.test'
-]
 
+class FineGrainedSuite(MypyDataItem):
+    files = [
+        'fine-grained.test'
+    ]
 
-class FineGrainedSuite(DataSuite):
-    @classmethod
-    def cases(cls) -> List[DataDrivenTestCase]:
-        c = []  # type: List[DataDrivenTestCase]
-        for f in files:
-            c += parse_test_cases(os.path.join(test_data_prefix, f),
-                                  None, test_temp_dir, True)
-        return c
+    optional_out = True
+    base_path = test_temp_dir
 
-    def run_case(self, testcase: DataDrivenTestCase) -> None:
-        main_src = '\n'.join(testcase.input)
+    def run_case(self) -> None:
+        main_src = '\n'.join(self.input)
         result = perform_build(main_src)
         messages, manager, graph = result.errors, result.manager, result.graph
 
@@ -63,9 +58,9 @@ class FineGrainedSuite(DataSuite):
         a = [line.replace('\\', '/') for line in a]
 
         assert_string_arrays_equal(
-            testcase.output, a,
-            'Invalid output ({}, line {})'.format(testcase.file,
-                                                  testcase.line))
+            self.output, a,
+            'Invalid output ({}, line {})'.format(self.file,
+                                                  self.line))
 
 
 def find_steps() -> List[List[Tuple[str, str]]]:

@@ -1,7 +1,6 @@
 import sys
 import re
 import os
-import tempfile
 
 from typing import List, Tuple, Any
 
@@ -82,29 +81,6 @@ def assert_string_arrays_equal(expected: List[str], actual: List[str],
             show_align_message(expected[first_diff], actual[first_diff])
 
         raise AssertionFailure(msg)
-
-
-class ProtoTestCase:
-    def __init__(self, name: str) -> None:
-        self.name = name
-        self.prefix = typename(type(self)) + '.'
-        self.old_cwd = None  # type: str
-        self.tmpdir = None  # type: tempfile.TemporaryDirectory
-
-    def set_up(self) -> None:
-        self.old_cwd = os.getcwd()
-        self.tmpdir = tempfile.TemporaryDirectory(
-            prefix='mypy-test-',
-            dir=os.path.abspath('tmp-test-dirs')
-        )
-        os.chdir(self.tmpdir.name)
-        os.mkdir('tmp')
-
-    def tear_down(self) -> None:
-        os.chdir(self.old_cwd)
-        self.tmpdir.cleanup()
-        self.old_cwd = None
-        self.tmpdir = None
 
 
 def show_align_message(s1: str, s2: str) -> None:

@@ -20,34 +20,23 @@ from typing import Dict, List, Tuple
 
 from mypy.util import try_find_python2_interpreter
 
-from mypy.unit.config import test_data_prefix, test_temp_dir
+from mypy.unit.config import test_temp_dir
 from mypy.unit.helpers import SkipTestCaseException, assert_string_arrays_equal
-from mypy.unit.data import DataSuite, DataDrivenTestCase, parse_test_cases
+from mypy.unit.data import MypyDataItem
 
-# Files which contain test case descriptions.
-python_eval_files = ['pythoneval.test',
-                     'python2eval.test']
-
-python_34_eval_files = ['pythoneval-asyncio.test']
 
 # Path to Python 3 interpreter
 python3_path = sys.executable
 program_re = re.compile(r'\b_program.py\b')
 
 
-class PythonEvaluationSuite(DataSuite):
-    @classmethod
-    def cases(cls) -> List[DataDrivenTestCase]:
-        files = python_eval_files
-        if sys.version_info.major == 3 and sys.version_info.minor >= 4:
-            files += python_34_eval_files
-        c = []  # type: List[DataDrivenTestCase]
-        for f in files:
-            c += parse_test_cases(os.path.join(test_data_prefix, f),
-                                  None, test_temp_dir, True)
-        return c
+class PythonEvaluationSuite(MypyDataItem):
+    # Files which contain test case descriptions.
+    files = ['pythoneval.test',
+             'python2eval.test']
+    optional_out = True
 
-    def run_case(self, testcase: DataDrivenTestCase) -> None:
+    def run_case(self) -> None:
         """Runs Mypy in a subprocess.
 
         If this passes without errors, executes the script again with a given Python
@@ -55,10 +44,10 @@ class PythonEvaluationSuite(DataSuite):
         """
         mypy_cmdline = [
             python3_path,
-            os.path.join(testcase.old_cwd, 'scripts', 'mypy'),
+            os.path.join(self.old_cwd, 'scripts', 'mypy'),
             '--show-traceback',
         ]
-        py2 = testcase.name.lower().endswith('python2')
+        py2 = self.name.lower().endswith('python2')
         if py2:
             mypy_cmdline.append('--py2')
             interpreter = try_find_python2_interpreter()
@@ -69,11 +58,11 @@ class PythonEvaluationSuite(DataSuite):
             interpreter = python3_path
 
         # Write the program to a file.
-        program = '_' + testcase.name + '.py'
+        program = '_' + self.name + '.py'
         mypy_cmdline.append(program)
         program_path = os.path.join(test_temp_dir, program)
         with open(program_path, 'w') as file:
-            for s in testcase.input:
+            for s in self.input:
                 file.write('{}\n'.format(s))
         # Type check the program.
         # This uses the same PYTHONPATH as the current process.
@@ -82,7 +71,7 @@ class PythonEvaluationSuite(DataSuite):
             # Set up module path for the execution.
             # This needs the typing module but *not* the mypy module.
             vers_dir = '2.7' if py2 else '3.2'
-            typing_path = os.path.join(testcase.old_cwd, 'lib-typing', vers_dir)
+            typing_path = os.path.join(self.old_cwd, 'lib-typing', vers_dir)
             assert os.path.isdir(typing_path)
             env = os.environ.copy()
             env['PYTHONPATH'] = typing_path
@@ -90,9 +79,14 @@ class PythonEvaluationSuite(DataSuite):
             out += interp_out
         # Remove temp file.
         os.remove(program_path)
-        assert_string_arrays_equal(adapt_output(testcase), out,
+        assert_string_arrays_equal(self.adapt_output(), out,
                                    'Invalid output ({}, line {})'.format(
-                                       testcase.file, testcase.line))
+                                       self.file, self.line))
+
+    def adapt_output(self) -> List[str]:
+        """Translates the generic _program.py into the actual filename."""
+        program = '_' + self.name + '.py'
+        return [program_re.sub(program, line) for line in self.output]
 
 
 def split_lines(*streams: bytes) -> List[str]:
@@ -102,12 +96,6 @@ def split_lines(*streams: bytes) -> List[str]:
         for stream in streams
         for s in str(stream, 'utf8').splitlines()
     ]
-
-
-def adapt_output(testcase: DataDrivenTestCase) -> List[str]:
-    """Translates the generic _program.py into the actual filename."""
-    program = '_' + testcase.name + '.py'
-    return [program_re.sub(program, line) for line in testcase.output]
 
 
 def run(

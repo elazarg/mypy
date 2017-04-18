@@ -4,7 +4,7 @@ import os.path
 import re
 import shutil
 
-from mypy.unit.config import test_temp_dir, test_data_prefix
+from mypy.unit.config import test_temp_dir
 from mypy.unit.helpers import (
     assert_string_arrays_equal, normalize_error_messages,
     casefile_pyversion, AssertionFailure,
@@ -17,96 +17,89 @@ from mypy.build import BuildSource, find_module_clear_caches
 from mypy.errors import CompileError
 from mypy.main import process_options
 from mypy.options import Options
-from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
-
-# List of files that contain test case descriptions.
-files = [
-    'check-basic.test',
-    'check-callable.test',
-    'check-classes.test',
-    'check-statements.test',
-    'check-generics.test',
-    'check-dynamic-typing.test',
-    'check-inference.test',
-    'check-inference-context.test',
-    'check-kwargs.test',
-    'check-overloading.test',
-    'check-type-checks.test',
-    'check-abstract.test',
-    'check-multiple-inheritance.test',
-    'check-super.test',
-    'check-modules.test',
-    'check-typevar-values.test',
-    'check-unsupported.test',
-    'check-unreachable-code.test',
-    'check-unions.test',
-    'check-isinstance.test',
-    'check-lists.test',
-    'check-namedtuple.test',
-    'check-typeddict.test',
-    'check-type-aliases.test',
-    'check-ignore.test',
-    'check-type-promotion.test',
-    'check-semanal-error.test',
-    'check-flags.test',
-    'check-incremental.test',
-    'check-bound.test',
-    'check-optional.test',
-    'check-fastparse.test',
-    'check-warnings.test',
-    'check-async-await.test',
-    'check-newtype.test',
-    'check-class-namedtuple.test',
-    'check-selftype.test',
-    'check-python2.test',
-    'check-columns.test',
-    'check-functions.test',
-    'check-tuples.test',
-    'check-expressions.test',
-    'check-generic-subtyping.test',
-    'check-varargs.test',
-    'check-newsyntax.test',
-    'check-underscores.test',
-    'check-classvar.test',
-    'check-enum.test',
-]
+from mypy.unit.data import MypyDataItem
 
 
-class TypeCheckSuite(DataSuite):
-    @classmethod
-    def cases(cls) -> List[DataDrivenTestCase]:
-        c = []  # type: List[DataDrivenTestCase]
-        for f in files:
-            c += parse_test_cases(os.path.join(test_data_prefix, f),
-                                  None, test_temp_dir, True)
-        return c
+class TypeCheckSuite(MypyDataItem):
+    # List of files that contain test case descriptions.
+    files = [
+        'check-basic.test',
+        'check-callable.test',
+        'check-classes.test',
+        'check-statements.test',
+        'check-generics.test',
+        'check-dynamic-typing.test',
+        'check-inference.test',
+        'check-inference-context.test',
+        'check-kwargs.test',
+        'check-overloading.test',
+        'check-type-checks.test',
+        'check-abstract.test',
+        'check-multiple-inheritance.test',
+        'check-super.test',
+        'check-modules.test',
+        'check-typevar-values.test',
+        'check-unsupported.test',
+        'check-unreachable-code.test',
+        'check-unions.test',
+        'check-isinstance.test',
+        'check-lists.test',
+        'check-namedtuple.test',
+        'check-typeddict.test',
+        'check-type-aliases.test',
+        'check-ignore.test',
+        'check-type-promotion.test',
+        'check-semanal-error.test',
+        'check-flags.test',
+        'check-incremental.test',
+        'check-bound.test',
+        'check-optional.test',
+        'check-fastparse.test',
+        'check-warnings.test',
+        'check-async-await.test',
+        'check-newtype.test',
+        'check-class-namedtuple.test',
+        'check-selftype.test',
+        'check-python2.test',
+        'check-columns.test',
+        'check-functions.test',
+        'check-tuples.test',
+        'check-expressions.test',
+        'check-generic-subtyping.test',
+        'check-varargs.test',
+        'check-newsyntax.test',
+        'check-underscores.test',
+        'check-classvar.test',
+        'check-enum.test',
+    ]
+    optional_out = True
 
-    def run_case(self, testcase: DataDrivenTestCase) -> None:
-        incremental = 'incremental' in testcase.name.lower() or 'incremental' in testcase.file
-        optional = 'optional' in testcase.file
+    def run_case(self) -> None:
+        incremental = 'incremental' in self.name.lower() or 'incremental' in self.file
+        optional = 'optional' in self.file
         if incremental:
             # Incremental tests are run once with a cold cache, once with a warm cache.
-            # Expect success on first run, errors from testcase.output (if any) on second run.
+            # Expect success on first run, errors from self.output (if any) on second run.
             # We briefly sleep to make sure file timestamps are distinct.
             clear_cache()
-            self.run_case_once(testcase, 1)
-            self.run_case_once(testcase, 2)
+            self.run_case_once(1)
+            self.run_case_once(2)
         elif optional:
             try:
                 experiments.STRICT_OPTIONAL = True
-                self.run_case_once(testcase)
+                self.run_case_once()
             finally:
                 experiments.STRICT_OPTIONAL = False
         else:
             try:
                 old_strict_optional = experiments.STRICT_OPTIONAL
-                self.run_case_once(testcase)
+                self.run_case_once()
             finally:
                 experiments.STRICT_OPTIONAL = old_strict_optional
 
-    def run_case_once(self, testcase: DataDrivenTestCase, incremental: int = 0) -> None:
+    def run_case_once(self, incremental: int = 0) -> None:
         find_module_clear_caches()
-        original_program_text = '\n'.join(testcase.input)
+        original_program_text = '\n'.join(self.input)
         module_data = parse_module(original_program_text, incremental)
 
         if incremental:
@@ -133,10 +126,10 @@ class TypeCheckSuite(DataSuite):
                             os.utime(target, times=(new_time, new_time))
 
         # Parse options after moving files (in case mypy.ini is being moved).
-        options = parse_options(original_program_text, testcase, incremental)
+        options = self.parse_options(original_program_text, incremental)
         options.use_builtins_fixtures = True
         options.show_traceback = True
-        if 'optional' in testcase.file:
+        if 'optional' in self.file:
             options.strict_optional = True
         if incremental:
             options.incremental = True
@@ -159,32 +152,57 @@ class TypeCheckSuite(DataSuite):
         # Make sure error messages match
         if incremental == 0:
             msg = 'Invalid type checker output ({}, line {})'
-            output = testcase.output
+            output = self.output
         elif incremental == 1:
             msg = 'Invalid type checker output in incremental, run 1 ({}, line {})'
-            output = testcase.output
+            output = self.output
         elif incremental == 2:
             msg = 'Invalid type checker output in incremental, run 2 ({}, line {})'
-            output = testcase.output2
+            output = self.output2
         else:
             raise AssertionError()
 
         if output != a and self.update_data:
-            testcase.update_testcase_output(a)
-        assert_string_arrays_equal(output, a, msg.format(testcase.file, testcase.line))
+            self.update_testcase_output(a)
+        assert_string_arrays_equal(output, a, msg.format(self.file, self.line))
 
         if incremental and res:
-            if options.follow_imports == 'normal' and testcase.output is None:
+            if options.follow_imports == 'normal' and self.output is None:
                 verify_cache(module_data, a, res.manager)
             if incremental == 2:
                 check_module_equivalence(
                     'rechecked',
-                    testcase.expected_rechecked_modules,
+                    self.expected_rechecked_modules,
                     res.manager.rechecked_modules)
                 check_module_equivalence(
                     'stale',
-                    testcase.expected_stale_modules,
+                    self.expected_stale_modules,
                     res.manager.stale_modules)
+
+    def parse_options(self, program_text: str, incremental: int) -> Options:
+        options = Options()
+        flags = re.search('# flags: (.*)$', program_text, flags=re.MULTILINE)
+        if incremental == 2:
+            flags2 = re.search('# flags2: (.*)$', program_text, flags=re.MULTILINE)
+            if flags2:
+                flags = flags2
+
+        flag_list = None
+        if flags:
+            flag_list = flags.group(1).split()
+            targets, options = process_options(flag_list, require_targets=False)
+            if targets:
+                # TODO: support specifying targets via the flags pragma
+                raise RuntimeError('Specifying targets via the flags pragma is not supported.')
+        else:
+            options = Options()
+
+        # Allow custom python version to override testcase_pyversion
+        if (not flag_list or
+                all(flag not in flag_list for flag in ['--python-version', '-2', '--py2'])):
+            options.python_version = casefile_pyversion(self.file, self.name)
+
+        return options
 
 
 def clear_cache() -> None:
@@ -299,30 +317,3 @@ def parse_module(program_text: str, incremental: int = 0) -> List[Tuple[str, str
         return out
     else:
         return [('__main__', 'main', program_text)]
-
-
-def parse_options(program_text: str, testcase: DataDrivenTestCase,
-                  incremental: int) -> Options:
-    options = Options()
-    flags = re.search('# flags: (.*)$', program_text, flags=re.MULTILINE)
-    if incremental == 2:
-        flags2 = re.search('# flags2: (.*)$', program_text, flags=re.MULTILINE)
-        if flags2:
-            flags = flags2
-
-    flag_list = None
-    if flags:
-        flag_list = flags.group(1).split()
-        targets, options = process_options(flag_list, require_targets=False)
-        if targets:
-            # TODO: support specifying targets via the flags pragma
-            raise RuntimeError('Specifying targets via the flags pragma is not supported.')
-    else:
-        options = Options()
-
-    # Allow custom python version to override testcase_pyversion
-    if (not flag_list or
-            all(flag not in flag_list for flag in ['--python-version', '-2', '--py2'])):
-        options.python_version = casefile_pyversion(testcase.file, testcase.name)
-
-    return options

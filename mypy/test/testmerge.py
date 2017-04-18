@@ -15,13 +15,9 @@ from mypy.server.update import build_incremental_step, replace_modules_with_new_
 from mypy.strconv import StrConv
 from mypy.types import TypeStrVisitor, Type
 from mypy.unit.helpers import assert_string_arrays_equal
-from mypy.unit.config import test_temp_dir, test_data_prefix
-from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
+from mypy.unit.config import test_temp_dir
+from mypy.unit.data import MypyDataItem
 from mypy.unit.builder import perform_build
-
-files = [
-    'merge.test'
-]
 
 
 # Which data structures to dump in a test case?
@@ -31,21 +27,19 @@ TYPES = 'TYPES'
 AST = 'AST'
 
 
-class ASTMergeSuite(DataSuite):
-    def __init__(self, *, update_data: bool) -> None:
-        super().__init__(update_data=update_data)
+class ASTMergeSuite(MypyDataItem):
+
+    files = [
+        'merge.test'
+    ]
+    optional_out = True
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.dumper = Dumper()
 
-    @classmethod
-    def cases(cls) -> List[DataDrivenTestCase]:
-        c = []  # type: List[DataDrivenTestCase]
-        for f in files:
-            c += parse_test_cases(os.path.join(test_data_prefix, f),
-                                  None, test_temp_dir, True)
-        return c
-
-    def run_case(self, testcase: DataDrivenTestCase) -> None:
-        name = testcase.name
+    def run_case(self) -> None:
+        name = self.name
         # We use the test case name to decide which data structures to dump.
         # Dumping everything would result in very verbose test cases.
         if name.endswith('_symtable'):
@@ -57,7 +51,7 @@ class ASTMergeSuite(DataSuite):
         else:
             kind = AST
 
-        main_src = '\n'.join(testcase.input)
+        main_src = '\n'.join(self.input)
         result = perform_build(main_src)
         messages, manager, graph = result.errors, result.manager, result.graph
 
@@ -88,9 +82,9 @@ class ASTMergeSuite(DataSuite):
             assert expr not in new_types
 
         assert_string_arrays_equal(
-            testcase.output, a,
-            'Invalid output ({}, line {})'.format(testcase.file,
-                                                  testcase.line))
+            self.output, a,
+            'Invalid output ({}, line {})'.format(self.file,
+                                                  self.line))
 
 
 class Dumper:

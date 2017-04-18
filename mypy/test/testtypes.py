@@ -16,7 +16,7 @@ from mypy.types import (
     true_only, false_only, TypeVarId,
 )
 from mypy.unit.helpers import (
-    assert_equal, assert_true, assert_false, assert_type,
+    assert_equal, assert_true, assert_false, assert_type
 )
 
 

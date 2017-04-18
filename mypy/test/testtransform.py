@@ -2,39 +2,37 @@
 
 import os.path
 
-from typing import List
-
 from mypy import build
 from mypy.build import BuildSource
 from mypy.errors import CompileError
 from mypy.options import Options
 from mypy.treetransform import TransformVisitor
 from mypy.types import Type
-from mypy.unit.config import test_data_prefix, test_temp_dir
+from mypy.unit.config import test_temp_dir
 from mypy.unit.helpers import assert_string_arrays_equal, casefile_pyversion
-from mypy.unit.data import parse_test_cases, DataDrivenTestCase, DataSuite
+from mypy.unit.data import MypyDataItem
 
 
-# Reuse semantic analysis test cases.
-transform_files = ['semanal-basic.test',
-                   'semanal-expressions.test',
-                   'semanal-classes.test',
-                   'semanal-types.test',
-                   'semanal-modules.test',
-                   'semanal-statements.test',
-                   'semanal-abstractclasses.test',
-                   'semanal-python2.test']
+class TransformSuite(MypyDataItem):
 
+    # Reuse semantic analysis test cases.
+    files = ['semanal-basic.test',
+             'semanal-expressions.test',
+             'semanal-classes.test',
+             'semanal-types.test',
+             'semanal-modules.test',
+             'semanal-statements.test',
+             'semanal-abstractclasses.test',
+             'semanal-python2.test']
 
-class TransformSuite(DataSuite):
-    def run_case(self, testcase: DataDrivenTestCase) -> None:
+    def run_case(self) -> None:
         try:
-            src = '\n'.join(testcase.input)
+            src = '\n'.join(self.input)
             options = Options()
             options.use_builtins_fixtures = True
             options.semantic_analysis_only = True
             options.show_traceback = True
-            options.python_version = casefile_pyversion(testcase.file)
+            options.python_version = casefile_pyversion(self.file)
             result = build.build(sources=[BuildSource('main', None, src)],
                                  options=options,
                                  alt_lib_path=test_temp_dir)
@@ -61,19 +59,9 @@ class TransformSuite(DataSuite):
         except CompileError as e:
             a = e.messages
         assert_string_arrays_equal(
-            testcase.output, a,
-            'Invalid semantic analyzer output ({}, line {})'.format(testcase.file,
-                                                                    testcase.line))
-
-    @classmethod
-    def cases(cls) -> List[DataDrivenTestCase]:
-        c = []  # type: List[DataDrivenTestCase]
-        for f in transform_files:
-            c += parse_test_cases(os.path.join(test_data_prefix, f),
-                                  None,
-                                  base_path=test_temp_dir,
-                                  native_sep=True)
-        return c
+            self.output, a,
+            'Invalid semantic analyzer output ({}, line {})'.format(self.file,
+                                                                    self.line))
 
 
 class TestTransformVisitor(TransformVisitor):

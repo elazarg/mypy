@@ -1,9 +1,8 @@
 """Test cases for the type checker: exporting inferred types"""
 
-import os.path
 import re
 
-from typing import Set, List
+from typing import Set
 
 from mypy.nodes import (
     NameExpr, TypeVarExpr, CallExpr, Expression, MypyFile, AssignmentStmt, IntExpr,
@@ -11,30 +10,21 @@ from mypy.nodes import (
 from mypy.traverser import TraverserVisitor
 from mypy.util import short_type
 
-from mypy.unit.data import DataSuite, parse_test_cases, DataDrivenTestCase
-from mypy.unit import config
+from mypy.unit.data import MypyDataItem
 from mypy.unit.builder import perform_build
 
 
-# List of files that contain test case descriptions.
-files = ['typexport-basic.test']
+class TypeExportSuite(MypyDataItem):
 
+    # List of files that contain test case descriptions.
+    files = ['typexport-basic.test']
 
-class TypeExportSuite(DataSuite):
-    @classmethod
-    def cases(cls) -> List[DataDrivenTestCase]:
-        c = []  # type: List[DataDrivenTestCase]
-        for f in files:
-            c += parse_test_cases(os.path.join(config.test_data_prefix, f),
-                                  None, config.test_temp_dir)
-        return c
-
-    def run_case(self, testcase: DataDrivenTestCase) -> None:
-        line = testcase.input[0]
+    def run_case(self) -> None:
+        line = self.input[0]
         mask = ''
         if line.startswith('##'):
             mask = '(' + line[2:].strip() + ')$'
-        result = perform_build('\n'.join(testcase.input))
+        result = perform_build('\n'.join(self.input))
         a, map = result.errors, result.types
         nodes = map.keys()
 
