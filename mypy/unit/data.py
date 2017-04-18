@@ -13,11 +13,10 @@ from abc import abstractmethod
 from os import remove, rmdir
 
 import pytest  # type: ignore  # no pytest in typeshed
-from typing import List, Tuple, Set, Optional, Dict, Iterator, Any
+from typing import List, Tuple, Set, Optional, Dict, Iterator, Any, NamedTuple
 
 from mypy.unit import config
 from mypy.unit.helpers import typename
-from mypy.unit.parse_datatest import parse_test_data, TestItem
 
 
 def expand_includes(a: List[str], base_path: str) -> List[str]:
@@ -93,6 +92,91 @@ def fix_cobertura_filename(line: str) -> str:
                            m.group('filename').replace('\\', '/'),
                            line[m.end(1):])
 
+
+"""Parsed test caseitem.
+
+An item is of the form
+  [id arg]
+  .. data ..
+"""
+TestItem = NamedTuple('TestItem', [
+    ('id', str),
+    ('arg', Optional[str]),
+    ('data', List[str]),
+    ('line', int),
+    ('lastline', int),
+])
+
+
+def strip_list(l: List[str]) -> List[str]:
+    """Return a stripped copy of l.
+
+    Strip whitespace at the end of all lines, and strip all empty
+    lines from the end of the array.
+    """
+
+    r = []  # type: List[str]
+    for s in l:
+        # Strip spaces at end of line
+        r.append(re.sub(r'\s+$', '', s))
+
+    while len(r) > 0 and r[-1] == '':
+        r.pop()
+
+    return r
+
+
+def collapse_line_continuation(l: List[str]) -> List[str]:
+    r = []  # type: List[str]
+    cont = False
+    for s in l:
+        ss = re.sub(r'\\$', '', s)
+        if cont:
+            r[-1] += re.sub('^ +', '', ss)
+        else:
+            r.append(ss)
+        cont = s.endswith('\\')
+    return r
+
+
+def parse_test_data(l: List[str]) -> Iterator[TestItem]:
+    """Parse a list of lines that represent a sequence of test items."""
+
+    data = []  # type: List[str]
+
+    id = None  # type: Optional[str]
+    arg = None  # type: Optional[str]
+
+    i = 0
+    i0 = 0
+    while i < len(l):
+        s = l[i].strip()
+
+        if l[i].startswith('[') and s.endswith(']') and not s.startswith('[['):
+            if id:
+                data = collapse_line_continuation(data)
+                data = strip_list(data)
+                yield TestItem(id, arg, strip_list(data), i0 + 1, i)
+            i0 = i
+            id = s[1:-1]
+            arg = None
+            if ' ' in id:
+                arg = id[id.index(' ') + 1:]
+                id = id[:id.index(' ')]
+            data = []
+        elif l[i].startswith('[['):
+            data.append(l[i][1:])
+        elif not l[i].startswith('--'):
+            data.append(l[i])
+        elif l[i].startswith('----'):
+            data.append(l[i][2:])
+        i += 1
+
+    # Process the last item.
+    if id:
+        data = collapse_line_continuation(data)
+        data = strip_list(data)
+        yield TestItem(id, arg, data, i0 + 1, i)
 
 ##
 #

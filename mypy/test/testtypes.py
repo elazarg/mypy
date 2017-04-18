@@ -1,7 +1,8 @@
 """Test cases for mypy types and type operations."""
 
-import pytest  # type: ignore
 from typing import List, Tuple
+
+import pytest  # type: ignore
 
 from mypy.erasetype import erase_type
 from mypy.expandtype import expand_type
@@ -9,15 +10,15 @@ from mypy.join import join_types, join_simple
 from mypy.meet import meet_types
 from mypy.nodes import ARG_POS, ARG_OPT, ARG_STAR
 from mypy.subtypes import is_subtype, is_more_precise, is_proper_subtype
-from mypy.typefixture import InterfaceTypeFixture
 from mypy.types import (
     UnboundType, AnyType, CallableType, TupleType, TypeVarDef, Type,
     Instance, NoneTyp, Overloaded, TypeType, UnionType, UninhabitedType,
     true_only, false_only, TypeVarId,
 )
 from mypy.unit.helpers import (
-    assert_equal, assert_true, assert_false, assert_type
+    assert_equal, assert_true, assert_false, assert_type,
 )
+from mypy.unit.typefixture import InterfaceTypeFixture
 
 
 class TypesSuite:

@@ -1,9 +1,9 @@
 import pytest
 
 from mypy.subtypes import is_subtype
-from mypy.typefixture import InterfaceTypeFixture
 from mypy.types import Type
 from mypy.unit.helpers import assert_true
+from mypy.unit.typefixture import InterfaceTypeFixture
 
 
 def test_trivial_cases(fx) -> None:

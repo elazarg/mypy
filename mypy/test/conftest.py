@@ -1,10 +1,10 @@
 from typing import List
 
-from mypy.nodes import INVARIANT, CONTRAVARIANT, ARG_POS
-from mypy.typefixture import TypeFixture
-from mypy.types import UnboundType, TupleType, TypeVarDef, CallableType, Type
-
 import pytest  # type: ignore
+
+from mypy.nodes import INVARIANT, CONTRAVARIANT, ARG_POS
+from mypy.types import UnboundType, TupleType, TypeVarDef, CallableType, Type
+from mypy.unit.typefixture import TypeFixture
 
 pytest_plugins = [
     'mypy.unit.data',
